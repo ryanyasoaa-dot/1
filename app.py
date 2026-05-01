@@ -17,11 +17,13 @@ def create_app():
     from routes.admin_routes import admin_bp
     from routes.seller_routes import seller_bp
     from routes.buyer_routes import buyer_bp
+    from routes.rider_routes import rider_bp
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(seller_bp, url_prefix='/seller')
     app.register_blueprint(buyer_bp, url_prefix='/buyer')
+    app.register_blueprint(rider_bp, url_prefix='/rider')
     
     # Main routes (static pages)
     @app.route('/')

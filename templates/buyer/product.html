@@ -25,13 +25,14 @@
 
 <div class="container py-3">
     <nav class="shop-breadcrumb">
-        <a href="/">Home</a> / <a href="/buyer/market">Shop</a> / <span id="productName">Product</span>
+        <a href="/">Home</a> / <a href="/buyer/market">Shop</a> / <span id="productBreadcrumbName">Product</span>
     </nav>
 
     <div class="row g-4">
         <!-- Image -->
         <div class="col-12 col-md-5">
-            <div class="product-img rounded-3" style="height:360px;font-size:100px" id="productEmoji">🛍️</div>
+            <div class="product-img rounded-3" style="height:360px;font-size:100px;overflow:hidden" id="productMainImage">🛍️</div>
+            <div id="productThumbs" style="margin-top:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px"></div>
         </div>
 
         <!-- Details -->
@@ -43,6 +44,13 @@
                 <span style="font-size:16px;color:var(--gray);text-decoration:line-through;margin-left:8px" id="productOriginal"></span>
             </div>
             <div id="productStock" class="mb-3" style="font-size:13px"></div>
+            <div id="productVariants" class="mb-3" style="font-size:13px;color:var(--gray)"></div>
+            <div class="mb-3">
+                <label for="selectedVariant" style="font-size:13px;font-weight:600;margin-bottom:6px;display:block">Select Variant</label>
+                <select id="selectedVariant" class="form-select">
+                    <option value="">No variant</option>
+                </select>
+            </div>
             <p style="font-size:14px;color:var(--gray);line-height:1.7" id="productDesc"></p>
 
             <div class="d-flex align-items-center gap-3 mt-4 flex-wrap">

@@ -10,6 +10,7 @@ drop table if exists addresses             cascade;
 drop table if exists product_images        cascade;
 drop table if exists product_variants      cascade;
 drop table if exists products              cascade;
+drop table if exists cart_items            cascade;
 drop table if exists profiles              cascade;
 drop table if exists users                 cascade;
 
@@ -95,7 +96,10 @@ create table products (
     category          text        not null check (category in ('Dresses & Skirts', 'Tops & Blouses', 'Activewear & Yoga Pants', 'Lingerie & Sleepwear', 'Jackets & Coats', 'Shoes & Accessories')),
     price             numeric(10, 2) not null check (price >= 0),
     total_stock       integer     not null default 0 check (total_stock >= 0),
-    is_active         boolean     not null default true,
+    status            text        not null default 'pending' check (status in ('pending', 'active', 'rejected')),
+    reviewed_by       uuid        references users(id),
+    reviewed_at       timestamptz,
+    reject_reason     text,
     created_at        timestamptz not null default now(),
     updated_at        timestamptz not null default now(),
     primary key (id)
@@ -124,16 +128,28 @@ create table product_images (
     primary key (id)
 );
 
+create table cart_items (
+    id             uuid        not null default gen_random_uuid(),
+    user_id        uuid        not null references users(id) on delete cascade,
+    product_id     uuid        not null references products(id) on delete cascade,
+    variant_id     uuid        references product_variants(id) on delete set null,
+    quantity       integer     not null default 1 check (quantity > 0),
+    price_snapshot numeric(10, 2) not null check (price_snapshot >= 0),
+    created_at     timestamptz not null default now(),
+    primary key (id)
+);
+
 -- ============================================
 -- ORDERS TABLE
 -- ============================================
 create table orders (
     id              uuid        not null default gen_random_uuid(),
     buyer_id        uuid        not null references users(id) on delete cascade,
+    rider_id        uuid        references users(id) on delete set null,
     total_amount    numeric(10, 2) not null check (total_amount >= 0),
     shipping_address jsonb       not null,
-    status          text        not null default 'pending' check (status in ('pending', 'processing', 'shipped', 'delivered', 'cancelled')),
-    payment_method  text        not null default 'cod' check (payment_method in ('cod', 'card', 'bank_transfer')),
+    status          text        not null default 'pending' check (status in ('pending', 'processing', 'ready_for_pickup', 'in_transit', 'delivered')),
+    payment_method  text        not null default 'cod' check (payment_method in ('cod', 'card', 'bank_transfer', 'gcash')),
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now(),
     primary key (id)
@@ -161,6 +177,7 @@ alter table application_documents enable row level security;
 alter table products              enable row level security;
 alter table product_variants      enable row level security;
 alter table product_images        enable row level security;
+alter table cart_items            enable row level security;
 alter table orders                enable row level security;
 alter table order_items           enable row level security;
 
@@ -224,7 +241,7 @@ create policy "Sellers can delete own products" on products
     for delete using (seller_id = auth.uid());
 
 create policy "Buyers can view active products" on products
-    for select using (is_active = true);
+    for select using (status = 'active');
 
 -- ============================================
 -- POLICIES - Product Variants
@@ -250,8 +267,17 @@ create policy "Sellers can manage own images" on product_images
 
 create policy "Buyers can view product images" on product_images
     for select using (product_id in (
-        select id from products where is_active = true
+        select id from products where status = 'active'
     ));
+
+-- ============================================
+-- POLICIES - Cart
+-- ============================================
+create policy "Service role full access on cart items" on cart_items
+    for all using (true) with check (true);
+
+create policy "Users can manage own cart items" on cart_items
+    for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ============================================
 -- POLICIES - Orders
@@ -271,6 +297,12 @@ create policy "Sellers can view orders for their products" on orders
         join products p on oi.product_id = p.id
         where p.seller_id = auth.uid()
     ));
+
+create policy "Riders can view available and assigned deliveries" on orders
+    for select using (
+        status = 'ready_for_pickup'
+        or rider_id = auth.uid()
+    );
 
 -- ============================================
 -- POLICIES - Order Items
@@ -292,17 +324,62 @@ create index idx_applications_status     on applications(status);
 create index idx_app_docs_application_id on application_documents(application_id);
 create index idx_products_seller_id      on products(seller_id);
 create index idx_products_category       on products(category);
-create index idx_products_is_active      on products(is_active);
+create index idx_products_status         on products(status);
 create index idx_variants_product_id     on product_variants(product_id);
 create index idx_images_product_id       on product_images(product_id);
 create index idx_images_variant_id       on product_images(variant_id);
+create index idx_cart_items_user_id      on cart_items(user_id);
+create index idx_cart_items_product_id   on cart_items(product_id);
 create index idx_orders_buyer_id         on orders(buyer_id);
+create index idx_orders_rider_id         on orders(rider_id);
 create index idx_orders_status           on orders(status);
 create index idx_items_order_id          on order_items(order_id);
 create index idx_items_product_id        on order_items(product_id);
 
 -- ============================================
--- ADMIN USER INSERT (Replace UUID below)
+-- ALTER-ONLY MIGRATION BLOCK (NO RESET)
+-- Run this block on existing databases only.
 -- ============================================
--- INSERT INTO users (id, first_name, last_name, phone, role)
--- VALUES ('<your-admin-uuid>', 'Admin', 'Luxe', '09000000000', 'admin');
+/*
+alter table orders
+    add column if not exists rider_id uuid references users(id) on delete set null;
+
+do $$
+begin
+    alter table orders drop constraint if exists orders_status_check;
+exception
+    when undefined_object then null;
+end $$;
+
+alter table orders
+    add constraint orders_status_check
+    check (status in ('pending', 'processing', 'ready_for_pickup', 'in_transit', 'delivered'));
+
+do $$
+begin
+    alter table orders drop constraint if exists orders_payment_method_check;
+exception
+    when undefined_object then null;
+end $$;
+
+alter table orders
+    add constraint orders_payment_method_check
+    check (payment_method in ('cod', 'card', 'bank_transfer', 'gcash'));
+
+update orders
+set status = case
+    when status = 'shipped' then 'in_transit'
+    when status = 'cancelled' then 'pending'
+    else status
+end
+where status in ('shipped', 'cancelled');
+
+create index if not exists idx_orders_rider_id on orders(rider_id);
+
+drop policy if exists "Riders can view available and assigned deliveries" on orders;
+create policy "Riders can view available and assigned deliveries" on orders
+    for select using (
+        status = 'ready_for_pickup'
+        or rider_id = auth.uid()
+    );
+*/

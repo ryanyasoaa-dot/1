@@ -130,7 +130,7 @@ class AuthService:
         """Get all products (admin view)"""
         from models.product_model import ProductModel
         product_model = ProductModel()
-        return product_model.get_all_active()
+        return product_model.get_all()
     
     def get_default_address(self, user_id):
         """Get default address for user"""
@@ -165,7 +165,7 @@ class AuthService:
                     status_counts[status] += 1
         
         # Count products
-        products = self.supabase.table('products').select('id').eq('is_active', True).execute()
+        products = self.supabase.table('products').select('id').eq('status', 'active').execute()
         product_count = len(products.data) if products.data else 0
         
         # Count orders

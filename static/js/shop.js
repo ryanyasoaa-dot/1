@@ -17,46 +17,38 @@ function showToast(msg, isError = false) {
 }
 
 // ── Cart badge ────────────────────────────────────────────────
-function updateCartBadge() {
-    const cart  = getCart();
-    const total = cart.reduce((sum, i) => sum + i.qty, 0);
+async function updateCartBadge() {
+    const cart = await API.buyer.getCart().catch(() => []);
+    const total = cart.reduce((sum, i) => sum + Number(i.quantity || 0), 0);
     document.querySelectorAll('.cart-count').forEach(el => {
         el.textContent = total;
         el.style.display = total > 0 ? 'flex' : 'none';
     });
 }
 
-// ── Local cart (until API is ready) ──────────────────────────
-function getCart() {
-    return JSON.parse(localStorage.getItem('luxe_cart') || '[]');
+// ── Cart (Supabase-backed) ────────────────────────────────────
+async function addToCart(product, quantity = 1, variantId = null) {
+    const res = await API.buyer.addToCart({
+        product_id: product.id,
+        variant_id: variantId,
+        quantity: quantity,
+    }).catch(() => ({ error: 'Network error.' }));
+    if (res.success) {
+        showToast(`✅ ${product.name} added to cart!`);
+        updateCartBadge();
+    } else {
+        showToast(res.error || 'Failed to add to cart.', true);
+    }
 }
 
-function saveCart(cart) {
-    localStorage.setItem('luxe_cart', JSON.stringify(cart));
+async function removeFromCart(itemId) {
+    await API.buyer.removeCartItem(itemId).catch(() => null);
     updateCartBadge();
 }
 
-function addToCart(product) {
-    const cart = getCart();
-    const idx  = cart.findIndex(i => i.id === product.id);
-    if (idx > -1) cart[idx].qty += 1;
-    else cart.push({ ...product, qty: 1 });
-    saveCart(cart);
-    showToast(`✅ ${product.name} added to cart!`);
-}
-
-function removeFromCart(productId) {
-    saveCart(getCart().filter(i => i.id !== productId));
-}
-
-function updateQty(productId, qty) {
-    const cart = getCart();
-    const idx  = cart.findIndex(i => i.id === productId);
-    if (idx > -1) {
-        if (qty <= 0) cart.splice(idx, 1);
-        else cart[idx].qty = qty;
-    }
-    saveCart(cart);
+async function updateQty(itemId, qty) {
+    await API.buyer.updateCartItem(itemId, qty).catch(() => null);
+    updateCartBadge();
 }
 
 // ── Local wishlist ────────────────────────────────────────────
@@ -147,7 +139,7 @@ function renderProductCard(p) {
                     <span class="stars">${renderStars(p.rating || 0)}</span>
                     <span>(${p.reviews || 0})</span>
                 </div>
-                <button class="btn-add-cart" onclick="event.stopPropagation(); addToCart({id:'${p.id}',name:'${p.name}',price:${p.price},emoji:'${p.emoji||'🛍️'}',image:'${p.image||''}'})">
+                <button class="btn-add-cart" onclick="event.stopPropagation(); addToCart({id:'${p.id}',name:'${p.name}'})">
                     Add to Cart
                 </button>
             </div>
@@ -169,16 +161,57 @@ async function loadProduct() {
     if (!p) return;
 
     const set = (elId, val) => { const el = document.getElementById(elId); if (el) el.innerHTML = val; };
-    set('productEmoji',    p.emoji || '🛍️');
     set('productName',     p.name);
+    set('productBreadcrumbName', p.name);
     set('productPrice',    formatCurrency(p.price));
     set('productOriginal', p.original_price ? formatCurrency(p.original_price) : '');
     set('productDesc',     p.description || 'No description available.');
     set('productRating',   `<span class="stars">${renderStars(p.rating || 0)}</span> (${p.reviews || 0} reviews)`);
-    set('productStock',    p.stock > 0 ? `<span style="color:#10b981">In Stock (${p.stock})</span>` : `<span style="color:#ef4444">Out of Stock</span>`);
+
+    const stock = p.total_stock ?? p.stock ?? 0;
+    set('productStock', stock > 0 ? `<span style="color:#10b981">In Stock (${stock})</span>` : `<span style="color:#ef4444">Out of Stock</span>`);
+
+    const variantsEl = document.getElementById('productVariants');
+    const variantSelect = document.getElementById('selectedVariant');
+    if (variantsEl) {
+        const variants = p.product_variants || [];
+        variantsEl.innerHTML = variants.length
+            ? variants.map(v => `<span style="display:inline-block;margin-right:8px;padding:4px 8px;background:#f9f9f9;border-radius:999px">${v.variant_type}: ${v.value} (${v.stock})</span>`).join('')
+            : 'No variants listed';
+        if (variantSelect) {
+            variantSelect.innerHTML = `<option value="">No variant</option>` + variants
+                .map(v => `<option value="${v.id}">${v.variant_type}: ${v.value} (${v.stock})</option>`)
+                .join('');
+        }
+    }
+
+    const mainImageEl = document.getElementById('productMainImage');
+    const thumbsEl = document.getElementById('productThumbs');
+    const images = p.product_images || [];
+    const primary = images.find(i => i.is_primary) || images[0];
+    if (mainImageEl) {
+        if (primary && primary.image_url) {
+            mainImageEl.innerHTML = `<img src="${primary.image_url}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover">`;
+        } else {
+            mainImageEl.textContent = p.emoji || '🛍️';
+        }
+    }
+    if (thumbsEl) {
+        thumbsEl.innerHTML = images.map(img => `
+            <button type="button" style="border:1px solid #eee;background:#fff;padding:0;border-radius:6px;overflow:hidden;height:64px" onclick="setMainProductImage('${img.image_url.replace(/'/g, "\\'")}')">
+                <img src="${img.image_url}" alt="thumbnail" style="width:100%;height:100%;object-fit:cover">
+            </button>
+        `).join('');
+    }
 
     const addBtn = document.getElementById('addToCartBtn');
-    if (addBtn) addBtn.onclick = () => addToCart({ id: p.id, name: p.name, price: p.price, emoji: p.emoji, image: p.image });
+    if (addBtn) addBtn.onclick = () => addToCart({ id: p.id, name: p.name }, detailQty, variantSelect?.value || null);
+}
+
+function setMainProductImage(url) {
+    const mainImageEl = document.getElementById('productMainImage');
+    if (!mainImageEl) return;
+    mainImageEl.innerHTML = `<img src="${url}" alt="product image" style="width:100%;height:100%;object-fit:cover">`;
 }
 
 // ── Cart page ─────────────────────────────────────────────────
@@ -188,42 +221,45 @@ function loadCart() {
     const summaryEl = document.getElementById('cartSummary');
     if (!container) return;
 
-    const cart = getCart();
+    API.buyer.getCart().then(cart => {
 
-    if (!cart.length) {
-        container.innerHTML = '';
-        if (emptyEl)   emptyEl.style.display   = 'block';
-        if (summaryEl) summaryEl.style.display  = 'none';
-        return;
-    }
+        if (!cart.length) {
+            container.innerHTML = '';
+            if (emptyEl)   emptyEl.style.display   = 'block';
+            if (summaryEl) summaryEl.style.display  = 'none';
+            return;
+        }
 
-    if (emptyEl)   emptyEl.style.display   = 'none';
-    if (summaryEl) summaryEl.style.display  = 'block';
+        if (emptyEl)   emptyEl.style.display   = 'none';
+        if (summaryEl) summaryEl.style.display  = 'block';
 
-    container.innerHTML = cart.map(item => `
+        container.innerHTML = cart.map(item => `
         <div class="cart-item">
-            <div class="cart-item-img">${item.image ? `<img src="${item.image}">` : item.emoji || '🛍️'}</div>
+            <div class="cart-item-img">${item.image ? `<img src="${item.image}">` : '🛍️'}</div>
             <div class="flex-grow-1">
-                <div style="font-size:14px;font-weight:600;margin-bottom:4px">${item.name}</div>
-                <div style="font-size:15px;font-weight:700;color:var(--pink);margin-bottom:8px">${formatCurrency(item.price)}</div>
+                <div style="font-size:14px;font-weight:600;margin-bottom:4px">${item.name || item.product?.name || 'Product'}</div>
+                <div style="font-size:15px;font-weight:700;color:var(--pink);margin-bottom:8px">${formatCurrency(item.price_snapshot)}</div>
                 <div class="qty-control">
-                    <button class="qty-btn" onclick="changeQty('${item.id}', ${item.qty - 1})">−</button>
-                    <span class="qty-value">${item.qty}</span>
-                    <button class="qty-btn" onclick="changeQty('${item.id}', ${item.qty + 1})">+</button>
+                    <button class="qty-btn" onclick="changeQty('${item.id}', ${Number(item.quantity) - 1})">−</button>
+                    <span class="qty-value">${item.quantity}</span>
+                    <button class="qty-btn" onclick="changeQty('${item.id}', ${Number(item.quantity) + 1})">+</button>
                 </div>
             </div>
             <div style="text-align:right">
-                <div style="font-size:15px;font-weight:700;margin-bottom:8px">${formatCurrency(item.price * item.qty)}</div>
+                <div style="font-size:15px;font-weight:700;margin-bottom:8px">${formatCurrency(item.subtotal)}</div>
                 <button class="btn btn-sm btn-outline-danger" onclick="removeFromCart('${item.id}'); loadCart()">🗑️</button>
             </div>
         </div>
     `).join('');
 
-    updateCartSummary(cart);
+        updateCartSummary(cart.map(i => ({ price: Number(i.price_snapshot || 0), qty: Number(i.quantity || 0) })));
+    }).catch(() => {
+        container.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div>Failed to load cart.</div>';
+    });
 }
 
-function changeQty(id, qty) {
-    updateQty(id, qty);
+async function changeQty(id, qty) {
+    await updateQty(id, qty);
     loadCart();
 }
 
@@ -239,21 +275,24 @@ function updateCartSummary(cart) {
 
 // ── Checkout page ─────────────────────────────────────────────
 function loadCheckout() {
-    const cart = getCart();
-    if (!cart.length) { window.location.href = '/buyer/cart'; return; }
+    API.buyer.getCart().then(cart => {
+        if (!cart.length) { window.location.href = '/buyer/cart'; return; }
 
-    const list = document.getElementById('checkoutItems');
-    if (list) {
-        list.innerHTML = cart.map(i => `
+        const list = document.getElementById('checkoutItems');
+        if (list) {
+            list.innerHTML = cart.map(i => `
             <div class="d-flex justify-content-between align-items-center mb-2" style="font-size:13px">
-                <span>${i.emoji || '🛍️'} ${i.name} × ${i.qty}</span>
-                <span style="font-weight:600">${formatCurrency(i.price * i.qty)}</span>
+                <span>🛍️ ${i.name || i.product?.name || 'Product'} × ${i.quantity}</span>
+                <span style="font-weight:600">${formatCurrency(i.subtotal)}</span>
             </div>
         `).join('');
-    }
+        }
 
-    updateCartSummary(cart);
-    loadAddressOptions();
+        updateCartSummary(cart.map(i => ({ price: Number(i.price_snapshot || 0), qty: Number(i.quantity || 0) })));
+        loadAddressOptions();
+    }).catch(() => {
+        showToast('Failed to load checkout items.', true);
+    });
 }
 
 async function loadAddressOptions() {
@@ -282,7 +321,6 @@ function selectAddress(el, id) {
 }
 
 async function placeOrder() {
-    const cart      = getCart();
     const addressId = document.getElementById('selectedAddressId')?.value;
     const payment   = document.querySelector('input[name="payment"]:checked')?.value;
 
@@ -292,14 +330,12 @@ async function placeOrder() {
     const btn = document.getElementById('placeOrderBtn');
     if (btn) { btn.disabled = true; btn.textContent = 'Placing Order...'; }
 
-    const res = await fetch('/buyer/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: cart, address_id: addressId, payment_method: payment }),
-    }).then(r => r.json()).catch(() => ({ error: 'Network error.' }));
+    const res = await API.buyer.checkout({
+        address_id: addressId,
+        payment_method: payment,
+    }).catch(() => ({ error: 'Network error.' }));
 
     if (res.order_id) {
-        localStorage.removeItem('luxe_cart');
         updateCartBadge();
         window.location.href = `/buyer/order_summary?id=${res.order_id}`;
     } else {

@@ -350,7 +350,7 @@ async function submitProduct(event) {
     });
 
     try {
-        const response = await fetch('/api/seller/products', {
+        const response = await fetch('/seller/api/products', {
             method: 'POST',
             body: formData
         });
@@ -358,7 +358,7 @@ async function submitProduct(event) {
         const data = await response.json();
 
         if (response.ok) {
-            showToast('Product created successfully!', 'success');
+            showToast(data.message || 'Product submitted for approval!', 'success');
             setTimeout(() => {
                 window.location.href = '/seller/products';
             }, 1500);

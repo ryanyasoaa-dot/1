@@ -38,6 +38,13 @@ def products():
     category = auth_service.get_seller_category(seller_id)
     return render_template('seller/products.html', products=products, category=category)
 
+@seller_bp.route('/api/products', methods=['GET'])
+@seller_required
+def api_seller_products():
+    seller_id = session['user']['id']
+    products = product_model.get_by_seller(seller_id)
+    return jsonify(products)
+
 @seller_bp.route('/products/add')
 @seller_required
 def product_add():
@@ -45,6 +52,7 @@ def product_add():
     category = auth_service.get_seller_category(seller_id)
     return render_template('seller/product-add.html', category=category)
 
+@seller_bp.route('/api/products', methods=['POST'])
 @seller_bp.route('/api/seller/products', methods=['POST'])
 @seller_required
 def api_seller_product_create():
@@ -57,6 +65,7 @@ def api_seller_product_create():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@seller_bp.route('/api/products/<product_id>', methods=['GET', 'PUT', 'DELETE'])
 @seller_bp.route('/api/seller/products/<product_id>', methods=['GET', 'PUT', 'DELETE'])
 @seller_required
 def api_seller_product_detail(product_id):
@@ -92,6 +101,29 @@ def orders():
     order_model = OrderModel()
     orders = order_model.get_by_seller(seller_id)
     return render_template('seller/orders.html', orders=orders)
+
+@seller_bp.route('/api/orders', methods=['GET'])
+@seller_required
+def api_seller_orders():
+    seller_id = session['user']['id']
+    from models.order_model import OrderModel
+    order_model = OrderModel()
+    return jsonify(order_model.get_by_seller(seller_id))
+
+@seller_bp.route('/api/orders/<order_id>/status', methods=['POST'])
+@seller_required
+def api_seller_update_order_status(order_id):
+    seller_id = session['user']['id']
+    data = request.get_json() or {}
+    status = data.get('status')
+    if status not in ('processing', 'ready_for_pickup'):
+        return jsonify({'error': 'Invalid status'}), 400
+    from models.order_model import OrderModel
+    order_model = OrderModel()
+    updated = order_model.update_status_for_seller(order_id, seller_id, status)
+    if not updated:
+        return jsonify({'error': 'Order not found or invalid status transition'}), 404
+    return jsonify({'success': True, 'order': updated})
 
 @seller_bp.route('/shipping')
 @seller_required

@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, jsonify, session, redirec
 from models.user_model import UserModel
 from models.application_model import ApplicationModel
 from models.order_model import OrderModel
+from models.product_model import ProductModel
 from services.auth_service import AuthService
 
 def admin_required(f):
@@ -19,6 +20,7 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 user_model = UserModel()
 app_model = ApplicationModel()
 order_model = OrderModel()
+product_model = ProductModel()
 auth_service = AuthService()
 
 @admin_bp.route('/')
@@ -41,7 +43,7 @@ def riders():
 @admin_bp.route('/products')
 @admin_required
 def products():
-    products = auth_service.get_all_products()
+    products = product_model.get_all()
     return render_template('admin/products.html', products=products)
 
 @admin_bp.route('/orders')
@@ -88,5 +90,38 @@ def reject_seller(user_id):
     try:
         user_model.update_role(user_id, 'user')
         return jsonify({'success': True, 'message': 'Seller rejected'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@admin_bp.route('/api/products', methods=['GET'])
+@admin_required
+def get_products():
+    status = request.args.get('status', '').strip() or None
+    products = product_model.get_all(status=status)
+    return jsonify(products)
+
+@admin_bp.route('/api/products/<product_id>', methods=['GET'])
+@admin_required
+def get_product(product_id):
+    product = product_model.get_by_id(product_id)
+    if not product:
+        return jsonify({'error': 'Product not found'}), 404
+    return jsonify(product)
+
+@admin_bp.route('/api/products/<product_id>/status', methods=['POST'])
+@admin_required
+def update_product_status(product_id):
+    data = request.get_json() or {}
+    status = data.get('status')
+    reason = (data.get('reason') or '').strip() or None
+    if status not in ('active', 'rejected'):
+        return jsonify({'error': 'Invalid status'}), 400
+    if status == 'rejected' and not reason:
+        return jsonify({'error': 'Rejection reason is required'}), 400
+    try:
+        updated = product_model.update_status(product_id, status, session['user']['id'], reason)
+        if not updated:
+            return jsonify({'error': 'Product not found'}), 404
+        return jsonify({'success': True, 'product': updated})
     except Exception as e:
         return jsonify({'error': str(e)}), 500

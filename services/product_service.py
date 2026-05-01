@@ -13,6 +13,10 @@ class ProductService:
     
     def create_product(self, seller_id, form_data, files):
         """Create a new product with variants and images"""
+        seller_application = self.app_model.get_by_user_id(seller_id)
+        if not seller_application or seller_application.get('role') != 'seller' or seller_application.get('status') != 'approved':
+            return {'success': False, 'error': 'Only approved sellers can add products.'}
+
         # Validate required fields
         name = form_data.get('name', '').strip()
         category = form_data.get('category', '').strip()
@@ -75,7 +79,7 @@ class ProductService:
                 'category': category,
                 'price': price_val,
                 'total_stock': sum(v['stock'] for v in variants),
-                'is_active': True
+                'status': 'pending'
             }
             
             product = self.product_model.create(product_data)
@@ -106,7 +110,7 @@ class ProductService:
             
             return {
                 'success': True,
-                'message': 'Product created successfully!',
+                'message': 'Product submitted for admin approval.',
                 'product_id': product_id
             }
         except Exception as e:
@@ -138,8 +142,10 @@ class ProductService:
             except (ValueError, TypeError):
                 pass
         
-        if 'is_active' in form_data:
-            update_data['is_active'] = form_data.get('is_active') == 'true'
+        if 'status' in form_data:
+            status = form_data.get('status')
+            if status in ('pending', 'active', 'rejected'):
+                update_data['status'] = status
         
         if update_data:
             self.product_model.update(product_id, seller_id, update_data)
@@ -170,12 +176,16 @@ class ProductService:
         """Get seller statistics"""
         products = self.product_model.get_by_seller(seller_id)
         total_products = len(products)
-        active_products = sum(1 for p in products if p.get('is_active'))
+        active_products = sum(1 for p in products if p.get('status') == 'active')
+        pending_products = sum(1 for p in products if p.get('status') == 'pending')
+        rejected_products = sum(1 for p in products if p.get('status') == 'rejected')
         total_stock = sum(p.get('total_stock', 0) for p in products)
         
         return {
             'total_products': total_products,
             'active_products': active_products,
+            'pending_products': pending_products,
+            'rejected_products': rejected_products,
             'total_stock': total_stock
         }
     

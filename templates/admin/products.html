@@ -42,12 +42,62 @@
     </div>
     <div class="content">
         <div class="card">
-            <div class="card-header"><h2>All Products</h2></div>
-            <div class="empty-state"><div class="empty-icon">📦</div>No products yet. Products will appear here once sellers start listing.</div>
+            <div class="card-header">
+                <h2>Product Moderation</h2>
+                <div class="filter-tabs">
+                    <button class="filter-tab active" onclick="setProductFilter(this, 'pending')">Pending</button>
+                    <button class="filter-tab" onclick="setProductFilter(this, 'active')">Active</button>
+                    <button class="filter-tab" onclick="setProductFilter(this, 'rejected')">Rejected</button>
+                    <button class="filter-tab" onclick="setProductFilter(this, 'all')">All</button>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Seller</th>
+                        <th>Category</th>
+                        <th>Price</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="productsTableBody"></tbody>
+            </table>
         </div>
     </div>
 </div>
 
+<div class="modal-overlay" id="productModalOverlay">
+    <div class="modal">
+        <button class="modal-close" onclick="closeProductModal()">✕</button>
+        <h2>Product Details</h2>
+        <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value" id="product-modal-name"></span></div>
+        <div class="detail-row"><span class="detail-label">Seller</span><span class="detail-value" id="product-modal-seller"></span></div>
+        <div class="detail-row"><span class="detail-label">Category</span><span class="detail-value" id="product-modal-category"></span></div>
+        <div class="detail-row"><span class="detail-label">Price</span><span class="detail-value" id="product-modal-price"></span></div>
+        <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value" id="product-modal-status"></span></div>
+        <div class="detail-row"><span class="detail-label">Stock</span><span class="detail-value" id="product-modal-stock"></span></div>
+        <hr class="section-divider">
+        <strong style="font-size:13px">Description</strong>
+        <p id="product-modal-description" style="font-size:13px;color:#555;margin-top:8px"></p>
+        <hr class="section-divider">
+        <strong style="font-size:13px">Variants</strong>
+        <div id="product-modal-variants" style="margin-top:8px;font-size:13px;color:#555"></div>
+        <hr class="section-divider">
+        <strong style="font-size:13px">Images</strong>
+        <div id="product-modal-images" style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fill, minmax(90px, 1fr));gap:8px"></div>
+        <div id="product-modal-actions" class="modal-actions" style="display:none;flex-direction:column;margin-top:14px">
+            <textarea class="notes-input" id="product-reject-reason" placeholder="Reason required when rejecting..."></textarea>
+            <div style="display:flex;gap:10px;margin-top:8px">
+                <button class="btn btn-approve btn-primary" onclick="approveProduct()">Approve</button>
+                <button class="btn btn-reject" onclick="rejectProduct()">Reject</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
 <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
 </body>

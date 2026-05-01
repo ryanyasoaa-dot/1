@@ -43,6 +43,11 @@ class UserModel:
         """Get all addresses for a user"""
         result = self.supabase.table('addresses').select('*').eq('user_id', user_id).execute()
         return result.data if result.data else []
+
+    def get_address_by_id(self, user_id, address_id):
+        """Get one address belonging to user"""
+        result = self.supabase.table('addresses').select('*').eq('user_id', user_id).eq('id', address_id).limit(1).execute()
+        return result.data[0] if result.data else None
     
     def create_address(self, address_data):
         """Create a new address"""

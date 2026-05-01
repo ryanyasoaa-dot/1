@@ -49,7 +49,9 @@ def _handle_login():
             elif role == 'seller':
                 return redirect(url_for('seller.dashboard'))
             elif role == 'buyer':
-                return redirect(url_for('buyer.dashboard'))
+                return redirect(url_for('index'))
+            elif role == 'rider':
+                return redirect(url_for('rider.dashboard'))
             return redirect(url_for('index'))
         return jsonify({'error': result.get('error', 'Invalid credentials')}), 401
     except Exception as e:

@@ -69,13 +69,24 @@ async function loadDeliveries(filter = 'all') {
             <td>${d.store_name    || '—'}</td>
             <td><span class="badge badge-${d.status}">${d.status}</span></td>
             <td class="actions">
-                ${d.status === 'assigned'
+                ${d.status === 'ready_for_pickup'
+                    ? `<button class="btn btn-view" onclick="acceptDelivery('${d.id}')">Accept</button>`
+                    : d.status === 'in_transit'
                     ? `<button class="btn btn-approve" onclick="markDelivered('${d.id}')">Mark Delivered</button>`
-                    : '—'
-                }
+                    : '—'}
             </td>
         </tr>
     `).join('');
+}
+
+async function acceptDelivery(id) {
+    const res = await API.rider.acceptDelivery(id).catch(() => ({ error: 'Network error.' }));
+    if (res.success) {
+        showToast('Delivery accepted. Status set to in_transit.');
+        loadDeliveries();
+    } else {
+        showToast(res.error || 'Failed.', true);
+    }
 }
 
 async function markDelivered(id) {

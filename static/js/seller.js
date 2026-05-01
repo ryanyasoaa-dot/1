@@ -72,9 +72,12 @@ async function loadProducts(filter = 'all') {
         <tr>
             <td>${p.name || '—'}</td>
             <td>${formatCurrency(p.price)}</td>
-            <td>${p.stock ?? 0}</td>
+            <td>${p.total_stock ?? 0}</td>
             <td>${p.sales ?? 0}</td>
-            <td><span class="badge badge-${p.status}">${p.status}</span></td>
+            <td>
+                <span class="badge badge-${p.status}">${p.status}</span>
+                ${p.status === 'rejected' && p.reject_reason ? `<div style="font-size:11px;color:#e74c3c;margin-top:4px">Reason: ${p.reject_reason}</div>` : ''}
+            </td>
             <td class="actions">
                 <a href="/seller/products/${p.id}/edit" class="btn btn-view">Edit</a>
                 <button class="btn btn-reject" onclick="deleteProduct('${p.id}')">Delete</button>
@@ -106,17 +109,31 @@ async function loadOrders(filter = 'all') {
         <tr>
             <td>#${(o.id || '').slice(0,8)}</td>
             <td>${o.customer_name || '—'}</td>
-            <td>${o.items ?? 0}</td>
+            <td>${o.items_count ?? (o.items ? o.items.length : 0)}</td>
             <td>${formatCurrency(o.total)}</td>
             <td><span class="badge badge-${o.status}">${o.status}</span></td>
             <td>${formatDate(o.created_at)}</td>
-            <td><button class="btn btn-view" onclick="viewOrder('${o.id}')">View</button></td>
+            <td style="display:flex;gap:6px;flex-wrap:wrap">
+                <button class="btn btn-view" onclick="viewOrder('${o.id}')">View</button>
+                ${o.status === 'pending' ? `<button class="btn btn-approve" onclick="updateOrderStatus('${o.id}','processing')">Process</button>` : ''}
+                ${o.status === 'processing' ? `<button class="btn btn-view" onclick="updateOrderStatus('${o.id}','ready_for_pickup')">Ready for Pickup</button>` : ''}
+            </td>
         </tr>
     `).join('');
 }
 
 function viewOrder(id) {
     console.log('View order:', id);
+}
+
+async function updateOrderStatus(id, status) {
+    const res = await API.seller.updateOrderStatus(id, status).catch(() => ({ error: 'Network error.' }));
+    if (res.success) {
+        showToast('Order status updated.');
+        loadOrders();
+    } else {
+        showToast(res.error || 'Failed to update order.', true);
+    }
 }
 
 // ── Shipping ──────────────────────────────────────────────────

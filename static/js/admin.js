@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('usersTable'))   loadUsers();
     if (document.getElementById('sellersTable')) loadSellers();
     if (document.getElementById('ridersTable'))  loadRiders();
+    if (document.getElementById('productsTableBody')) loadAdminProducts();
 });
 
 // ── Status update (shared) ────────────────────────────────────
@@ -316,4 +317,113 @@ async function loadRiders() {
             </td>
         </tr>
     `).join('');
+}
+
+// ── Product moderation ────────────────────────────────────────
+let productFilter = 'pending';
+let selectedProductId = null;
+
+function setProductFilter(el, status) {
+    productFilter = status;
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    loadAdminProducts();
+}
+
+async function loadAdminProducts() {
+    const tbody = document.getElementById('productsTableBody');
+    if (!tbody) return;
+    const status = productFilter === 'all' ? '' : productFilter;
+    const products = await API.adminProducts.getAll(status).catch(() => []);
+
+    if (!products.length) {
+        tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📦</div>No products found.</div></td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = products.map(p => `
+        <tr>
+            <td>${p.name || '—'}</td>
+            <td>${p.seller ? `${p.seller.first_name || ''} ${p.seller.last_name || ''}`.trim() : '—'}</td>
+            <td>${p.category || '—'}</td>
+            <td>₱${Number(p.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td>
+            <td><span class="badge badge-${p.status}">${p.status}</span></td>
+            <td class="actions">
+                <button class="btn btn-view" onclick="openProductModal('${p.id}')">View</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function openProductModal(productId) {
+    const p = await API.adminProducts.getOne(productId);
+    if (!p || p.error) {
+        showToast('Failed to load product.', true);
+        return;
+    }
+    selectedProductId = productId;
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value ?? '—';
+    };
+    setText('product-modal-name', p.name);
+    setText('product-modal-seller', p.seller ? `${p.seller.first_name || ''} ${p.seller.last_name || ''}`.trim() : '—');
+    setText('product-modal-category', p.category);
+    setText('product-modal-price', `₱${Number(p.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`);
+    setText('product-modal-status', p.status);
+    setText('product-modal-stock', p.total_stock ?? 0);
+    setText('product-modal-description', p.description || 'No description provided.');
+
+    const variantsEl = document.getElementById('product-modal-variants');
+    if (variantsEl) {
+        const variants = p.product_variants || [];
+        variantsEl.innerHTML = variants.length
+            ? variants.map(v => `${v.variant_type}: ${v.value} (${v.stock} stock)`).join('<br>')
+            : 'No variants';
+    }
+
+    const imagesEl = document.getElementById('product-modal-images');
+    if (imagesEl) {
+        const images = p.product_images || [];
+        imagesEl.innerHTML = images.length
+            ? images.map(img => `<img src="${img.image_url}" alt="product image" style="width:100%;height:90px;object-fit:cover;border-radius:6px;border:1px solid #eee">`).join('')
+            : '<span style="font-size:12px;color:#999">No images</span>';
+    }
+
+    const actions = document.getElementById('product-modal-actions');
+    if (actions) actions.style.display = p.status === 'pending' ? 'flex' : 'none';
+    const reason = document.getElementById('product-reject-reason');
+    if (reason) reason.value = '';
+
+    document.getElementById('productModalOverlay')?.classList.add('open');
+}
+
+function closeProductModal() {
+    document.getElementById('productModalOverlay')?.classList.remove('open');
+    selectedProductId = null;
+}
+
+async function approveProduct() {
+    if (!selectedProductId) return;
+    const res = await API.adminProducts.updateStatus(selectedProductId, 'active');
+    if (res.success) {
+        showToast('Product approved.');
+        closeProductModal();
+        loadAdminProducts();
+    } else {
+        showToast(res.error || 'Failed to approve product.', true);
+    }
+}
+
+async function rejectProduct() {
+    if (!selectedProductId) return;
+    const reason = document.getElementById('product-reject-reason')?.value.trim() || '';
+    const res = await API.adminProducts.updateStatus(selectedProductId, 'rejected', reason);
+    if (res.success) {
+        showToast('Product rejected.');
+        closeProductModal();
+        loadAdminProducts();
+    } else {
+        showToast(res.error || 'Failed to reject product.', true);
+    }
 }

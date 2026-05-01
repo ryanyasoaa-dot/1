@@ -49,8 +49,9 @@
                     <button class="btn btn-sm btn-outline-secondary active" onclick="filterOrders('all',this)">All</button>
                     <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('pending',this)">Pending</button>
                     <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('processing',this)">Processing</button>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('shipped',this)">Shipped</button>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('completed',this)">Completed</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('ready_for_pickup',this)">Ready for Pickup</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('in_transit',this)">In Transit</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('delivered',this)">Delivered</button>
                 </div>
             </div>
             <div id="ordersList"></div>
@@ -96,19 +97,23 @@ function renderOrders(data) {
                 </div>
                 <div style="font-size:13px;margin-bottom:12px">${o.items_count || 0} item(s) · <strong style="color:var(--pink)">${formatCurrency(o.total)}</strong></div>
                 <div class="timeline" style="padding-left:20px">
-                    <div class="timeline-item ${['pending','processing','shipped','completed'].includes(o.status) ? 'done' : ''}">
+                    <div class="timeline-item ${['pending','processing','ready_for_pickup','in_transit','delivered'].includes(o.status) ? 'done' : ''}">
                         <div class="timeline-dot"></div>
                         <div class="timeline-title" style="font-size:12px">Order Placed</div>
                     </div>
-                    <div class="timeline-item ${['processing','shipped','completed'].includes(o.status) ? 'done' : o.status === 'pending' ? '' : 'active'}">
+                    <div class="timeline-item ${['processing','ready_for_pickup','in_transit','delivered'].includes(o.status) ? 'done' : o.status === 'pending' ? '' : 'active'}">
                         <div class="timeline-dot"></div>
                         <div class="timeline-title" style="font-size:12px">Processing</div>
                     </div>
-                    <div class="timeline-item ${o.status === 'completed' ? 'done' : o.status === 'shipped' ? 'active' : ''}">
+                    <div class="timeline-item ${['ready_for_pickup','in_transit','delivered'].includes(o.status) ? 'done' : ''}">
                         <div class="timeline-dot"></div>
-                        <div class="timeline-title" style="font-size:12px">Shipped</div>
+                        <div class="timeline-title" style="font-size:12px">Ready for Pickup</div>
                     </div>
-                    <div class="timeline-item ${o.status === 'completed' ? 'done' : ''}">
+                    <div class="timeline-item ${o.status === 'delivered' ? 'done' : o.status === 'in_transit' ? 'active' : ''}">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-title" style="font-size:12px">In Transit</div>
+                    </div>
+                    <div class="timeline-item ${o.status === 'delivered' ? 'done' : ''}">
                         <div class="timeline-dot"></div>
                         <div class="timeline-title" style="font-size:12px">Delivered</div>
                     </div>

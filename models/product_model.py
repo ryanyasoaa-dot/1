@@ -12,27 +12,43 @@ class ProductModel:
     
     def get_by_id(self, product_id):
         """Get product by ID with variants and images"""
-        result = self.supabase.table('products').select('*, product_variants (*), product_images (*)').eq('id', product_id).single().execute()
+        result = self.supabase.table('products').select(
+            '*, seller:users(id, first_name, last_name), product_variants (*), product_images (*)'
+        ).eq('id', product_id).single().execute()
         return result.data if result.data else None
     
     def get_by_id_and_seller(self, product_id, seller_id):
         """Get product by ID only if owned by seller"""
-        result = self.supabase.table('products').select('*, product_variants (*), product_images (*)').eq('id', product_id).eq('seller_id', seller_id).single().execute()
+        result = self.supabase.table('products').select(
+            '*, product_variants (*), product_images (*)'
+        ).eq('id', product_id).eq('seller_id', seller_id).single().execute()
         return result.data if result.data else None
     
-    def get_by_seller(self, seller_id, include_inactive=False):
+    def get_by_seller(self, seller_id):
         """Get all products for a seller"""
-        query = self.supabase.table('products').select('*, product_variants (*), product_images (*)').eq('seller_id', seller_id)
-        if not include_inactive:
-            query = query.eq('is_active', True)
+        query = self.supabase.table('products').select(
+            '*, product_variants (*), product_images (*)'
+        ).eq('seller_id', seller_id)
         result = query.order('created_at', desc=True).execute()
         return result.data if result.data else []
     
     def get_all_active(self, category=None):
         """Get all active products, optionally filtered by category"""
-        query = self.supabase.table('products').select('*, seller:users(first_name, last_name)').eq('is_active', True)
+        query = self.supabase.table('products').select(
+            '*, seller:users(first_name, last_name), product_images (*)'
+        ).eq('status', 'active')
         if category:
             query = query.eq('category', category)
+        result = query.order('created_at', desc=True).execute()
+        return result.data if result.data else []
+
+    def get_all(self, status=None):
+        """Get all products for admin, optional status filter"""
+        query = self.supabase.table('products').select(
+            '*, seller:users(id, first_name, last_name, email, phone), product_variants (*), product_images (*)'
+        )
+        if status:
+            query = query.eq('status', status)
         result = query.order('created_at', desc=True).execute()
         return result.data if result.data else []
     
@@ -45,10 +61,22 @@ class ProductModel:
         """Update product (only if owned by seller)"""
         result = self.supabase.table('products').update(update_data).eq('id', product_id).eq('seller_id', seller_id).execute()
         return result.data[0] if result.data else None
+
+    def update_status(self, product_id, status, reviewed_by=None, reject_reason=None):
+        """Admin update product status"""
+        payload = {'status': status}
+        if reviewed_by:
+            payload['reviewed_by'] = reviewed_by
+        if status == 'rejected':
+            payload['reject_reason'] = reject_reason
+        else:
+            payload['reject_reason'] = None
+        result = self.supabase.table('products').update(payload).eq('id', product_id).execute()
+        return result.data[0] if result.data else None
     
     def delete(self, product_id, seller_id):
         """Soft delete a product"""
-        return self.update(product_id, seller_id, {'is_active': False})
+        return self.update(product_id, seller_id, {'status': 'rejected'})
     
     # Variant methods
     def get_variants(self, product_id):

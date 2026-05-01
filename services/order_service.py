@@ -24,7 +24,7 @@ class OrderService:
             
             # Get product
             product = self.product_model.get_by_id(product_id)
-            if not product or not product.get('is_active'):
+            if not product or product.get('status') != 'active':
                 continue
             
             # Calculate item total
