@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxe Seller — Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/seller.css') }}">
+</head>
+<body>
+
+<div id="sidebarOverlay"></div>
+<button class="sidebar-toggle" id="sidebarToggle">&#9776;</button>
+
+<aside class="sidebar">
+    <div class="sidebar-logo">Luxe Seller</div>
+    <ul class="sidebar-menu">
+        <li><a href="/seller" class="active"><span class="icon">🏠</span> Dashboard</a></li>
+        <li class="menu-group">STORE</li>
+        <li><a href="/seller/products"><span class="icon">📦</span> Products</a></li>
+        <li><a href="/seller/orders"><span class="icon">🛒</span> Orders</a></li>
+        <li><a href="/seller/shipping"><span class="icon">🚚</span> Shipping</a></li>
+        <li class="menu-group">FINANCE</li>
+        <li><a href="/seller/earnings"><span class="icon">💰</span> Earnings</a></li>
+        <li class="menu-group">PROFILE</li>
+        <li><a href="/seller/store"><span class="icon">🏬</span> Store Profile</a></li>
+        <li><a href="/seller/reviews"><span class="icon">⭐</span> Reviews</a></li>
+    </ul>
+    <div class="sidebar-footer">
+        <div class="sidebar-user">🏪 {{ session.user.name }}</div>
+        <a href="/logout" class="logout-link">🚪 Logout</a>
+    </div>
+</aside>
+
+<div class="main">
+    <div class="topbar">
+        <div class="topbar-title">Dashboard</div>
+        <div class="topbar-right">Seller Panel</div>
+    </div>
+    <div class="content">
+
+        <div class="stats">
+            <div class="stat-card"><div class="stat-label">Today's Sales</div><div class="stat-value">₱0</div><div class="stat-icon">📈</div></div>
+            <div class="stat-card"><div class="stat-label">Weekly Sales</div><div class="stat-value">₱0</div><div class="stat-icon">📊</div></div>
+            <div class="stat-card"><div class="stat-label">Monthly Sales</div><div class="stat-value">₱0</div><div class="stat-icon">💹</div></div>
+            <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-value">0</div><div class="stat-icon">🛒</div></div>
+            <div class="stat-card"><div class="stat-label">Pending Orders</div><div class="stat-value">0</div><div class="stat-icon">⏳</div></div>
+            <div class="stat-card"><div class="stat-label">Total Revenue</div><div class="stat-value">₱0</div><div class="stat-icon">💰</div></div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><h2>Quick Actions</h2></div>
+            <div class="quick-actions">
+                <a href="/seller/products/add" class="qa-card"><div class="qa-icon">➕</div><div class="qa-title">Add Product</div><div class="qa-sub">List a new item</div></a>
+                <a href="/seller/orders"        class="qa-card"><div class="qa-icon">🛒</div><div class="qa-title">View Orders</div><div class="qa-sub">Manage orders</div></a>
+                <a href="/seller/shipping"      class="qa-card"><div class="qa-icon">🚚</div><div class="qa-title">Shipping</div><div class="qa-sub">Track deliveries</div></a>
+                <a href="/seller/earnings"      class="qa-card"><div class="qa-icon">💰</div><div class="qa-title">Earnings</div><div class="qa-sub">View payouts</div></a>
+                <a href="/seller/reviews"       class="qa-card"><div class="qa-icon">⭐</div><div class="qa-title">Reviews</div><div class="qa-sub">Customer feedback</div></a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Recent Orders</h2>
+                <a href="/seller/orders" class="btn btn-view">View All</a>
+            </div>
+            <table>
+                <thead><tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Date</th></tr></thead>
+                <tbody id="ordersTable"></tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/seller.js') }}"></script>
+</body>
+</html>

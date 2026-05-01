@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxe Seller — Reviews</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/seller.css') }}">
+</head>
+<body>
+
+<div id="sidebarOverlay"></div>
+<button class="sidebar-toggle" id="sidebarToggle">&#9776;</button>
+
+<aside class="sidebar">
+    <div class="sidebar-logo">Luxe Seller</div>
+    <ul class="sidebar-menu">
+        <li><a href="/seller"><span class="icon">🏠</span> Dashboard</a></li>
+        <li class="menu-group">STORE</li>
+        <li><a href="/seller/products"><span class="icon">📦</span> Products</a></li>
+        <li><a href="/seller/orders"><span class="icon">🛒</span> Orders</a></li>
+        <li><a href="/seller/shipping"><span class="icon">🚚</span> Shipping</a></li>
+        <li class="menu-group">FINANCE</li>
+        <li><a href="/seller/earnings"><span class="icon">💰</span> Earnings</a></li>
+        <li class="menu-group">PROFILE</li>
+        <li><a href="/seller/store"><span class="icon">🏬</span> Store Profile</a></li>
+        <li><a href="/seller/reviews" class="active"><span class="icon">⭐</span> Reviews</a></li>
+    </ul>
+    <div class="sidebar-footer">
+        <div class="sidebar-user">🏪 {{ session.user.name }}</div>
+        <a href="/logout" class="logout-link">🚪 Logout</a>
+    </div>
+</aside>
+
+<div class="main">
+    <div class="topbar">
+        <div class="topbar-title">Reviews & Ratings</div>
+        <div class="topbar-right">Seller Panel</div>
+    </div>
+    <div class="content">
+        <div class="stats">
+            <div class="stat-card"><div class="stat-label">Avg Rating</div><div class="stat-value">—</div><div class="stat-icon">⭐</div></div>
+            <div class="stat-card"><div class="stat-label">Total Reviews</div><div class="stat-value">0</div><div class="stat-icon">💬</div></div>
+            <div class="stat-card"><div class="stat-label">5 Stars</div><div class="stat-value">0</div><div class="stat-icon">🌟</div></div>
+            <div class="stat-card"><div class="stat-label">Needs Reply</div><div class="stat-value">0</div><div class="stat-icon">📩</div></div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <h2>Customer Reviews</h2>
+                <div class="filter-tabs">
+                    <button class="filter-tab active" onclick="setFilterTab(this, loadReviews, 'all')">All</button>
+                    <button class="filter-tab" onclick="setFilterTab(this, loadReviews, '5')">5 ⭐</button>
+                    <button class="filter-tab" onclick="setFilterTab(this, loadReviews, '4')">4 ⭐</button>
+                    <button class="filter-tab" onclick="setFilterTab(this, loadReviews, '3')">3 ⭐</button>
+                    <button class="filter-tab" onclick="setFilterTab(this, loadReviews, '2')">1-2 ⭐</button>
+                </div>
+            </div>
+            <div id="reviewsList"></div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/seller.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxe Seller — Store Profile</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/seller.css') }}">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+</head>
+<body>
+
+<div id="sidebarOverlay"></div>
+<button class="sidebar-toggle" id="sidebarToggle">&#9776;</button>
+
+<aside class="sidebar">
+    <div class="sidebar-logo">Luxe Seller</div>
+    <ul class="sidebar-menu">
+        <li><a href="/seller"><span class="icon">🏠</span> Dashboard</a></li>
+        <li class="menu-group">STORE</li>
+        <li><a href="/seller/products"><span class="icon">📦</span> Products</a></li>
+        <li><a href="/seller/orders"><span class="icon">🛒</span> Orders</a></li>
+        <li><a href="/seller/shipping"><span class="icon">🚚</span> Shipping</a></li>
+        <li class="menu-group">FINANCE</li>
+        <li><a href="/seller/earnings"><span class="icon">💰</span> Earnings</a></li>
+        <li class="menu-group">PROFILE</li>
+        <li><a href="/seller/store" class="active"><span class="icon">🏬</span> Store Profile</a></li>
+        <li><a href="/seller/reviews"><span class="icon">⭐</span> Reviews</a></li>
+    </ul>
+    <div class="sidebar-footer">
+        <div class="sidebar-user">🏪 {{ session.user.name }}</div>
+        <a href="/logout" class="logout-link">🚪 Logout</a>
+    </div>
+</aside>
+
+<div class="main">
+    <div class="topbar">
+        <div class="topbar-title">Store Profile</div>
+        <div class="topbar-right">Seller Panel</div>
+    </div>
+    <div class="content">
+        <div class="card store-form">
+            <form id="storeForm">
+                <div class="form-group" style="margin-bottom:18px">
+                    <label class="form-label">Store Name</label>
+                    <input type="text" id="store_name" class="form-input" placeholder="Your store name" value="{{ store.store_name if store else '' }}">
+                </div>
+                <div class="form-group" style="margin-bottom:18px">
+                    <label class="form-label">Description</label>
+                    <textarea id="store_description" class="form-input" rows="3" placeholder="Tell customers about your store...">{{ store.store_description if store else '' }}</textarea>
+                </div>
+                <div class="form-group" style="margin-bottom:18px">
+                    <label class="form-label">Store Logo</label>
+                    <div class="upload-area">
+                        <input type="file" accept="image/*">
+                        <div style="font-size:24px">🖼️</div>
+                        <div style="font-size:12px;color:var(--gray);margin-top:4px"><span style="color:var(--pink);font-weight:600">Click to upload</span> logo</div>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:18px">
+                    <label class="form-label">Operating Hours</label>
+                    <div class="time-grid">
+                        <input type="time" id="open_time"  class="form-input" value="08:00">
+                        <input type="time" id="close_time" class="form-input" value="20:00">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:18px">
+                    <label class="form-label">Store Location (Pin on Map)</label>
+                    <div id="storeMap"></div>
+                    <div class="coords-display" id="coordsDisplay">📍 Click map to pin location</div>
+                    <input type="hidden" id="store_latitude">
+                    <input type="hidden" id="store_longitude">
+                </div>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/seller.js') }}"></script>
+</body>
+</html>

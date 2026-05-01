@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxe — Product</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
+</head>
+<body>
+
+<nav class="shop-navbar">
+    <div class="container d-flex align-items-center justify-content-between">
+        <a href="/" class="navbar-brand">Luxe</a>
+        <div class="d-flex align-items-center gap-2">
+            <a href="/buyer/wishlist" class="nav-icon-btn">❤️</a>
+            <a href="/buyer/cart" class="nav-icon-btn">
+                🛒<span class="nav-badge cart-count" style="display:none">0</span>
+            </a>
+            <a href="/buyer" class="nav-icon-btn">👤</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container py-3">
+    <nav class="shop-breadcrumb">
+        <a href="/">Home</a> / <a href="/buyer/market">Shop</a> / <span id="productName">Product</span>
+    </nav>
+
+    <div class="row g-4">
+        <!-- Image -->
+        <div class="col-12 col-md-5">
+            <div class="product-img rounded-3" style="height:360px;font-size:100px" id="productEmoji">🛍️</div>
+        </div>
+
+        <!-- Details -->
+        <div class="col-12 col-md-7">
+            <h1 style="font-family:var(--font-display);font-size:24px;font-weight:700;margin-bottom:8px" id="productName">Loading...</h1>
+            <div id="productRating" class="mb-2"></div>
+            <div class="mb-3">
+                <span style="font-size:28px;font-weight:700;color:var(--pink)" id="productPrice"></span>
+                <span style="font-size:16px;color:var(--gray);text-decoration:line-through;margin-left:8px" id="productOriginal"></span>
+            </div>
+            <div id="productStock" class="mb-3" style="font-size:13px"></div>
+            <p style="font-size:14px;color:var(--gray);line-height:1.7" id="productDesc"></p>
+
+            <div class="d-flex align-items-center gap-3 mt-4 flex-wrap">
+                <div class="qty-control">
+                    <button class="qty-btn" onclick="changeDetailQty(-1)">−</button>
+                    <span class="qty-value" id="detailQty">1</span>
+                    <button class="qty-btn" onclick="changeDetailQty(1)">+</button>
+                </div>
+                <button class="btn-pink px-4 py-2 flex-grow-1" id="addToCartBtn">Add to Cart 🛒</button>
+                <button class="btn-outline-pink px-3 py-2" id="wishlistBtn">❤️</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Related products -->
+    <div class="mt-5">
+        <div class="section-title">You May Also Like</div>
+        <div class="row g-2" id="relatedGrid">
+            <div class="col-12 text-center py-4">
+                <div class="spinner-border" style="color:var(--pink)"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="shop-toast" id="shopToast"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/shop.js') }}"></script>
+<script>
+let detailQty = 1;
+function changeDetailQty(delta) {
+    detailQty = Math.max(1, detailQty + delta);
+    document.getElementById('detailQty').textContent = detailQty;
+}
+
+// Load related products
+API.shop.getProducts().then(data => {
+    const grid = document.getElementById('relatedGrid');
+    if (!grid) return;
+    const items = data.slice(0, 4);
+    grid.innerHTML = items.map(p => renderProductCard(p)).join('');
+}).catch(() => {});
+</script>
+</body>
+</html>

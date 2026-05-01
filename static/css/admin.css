@@ -1,0 +1,74 @@
+/* ============================================
+   ADMIN.CSS — Admin dashboard specific styles
+   Depends on: dashboard.css
+   ============================================ */
+
+/* Quick action cards */
+.quick-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    padding: 20px;
+}
+
+.qa-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 12px;
+    text-align: center;
+    text-decoration: none;
+    transition: var(--transition);
+    display: block;
+}
+
+.qa-card:hover {
+    border-color: var(--pink);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255,43,172,0.1);
+}
+
+.qa-icon  { font-size: 28px; margin-bottom: 8px; }
+.qa-title { font-size: 13px; font-weight: 600; color: var(--dark); }
+.qa-sub   { font-size: 11px; color: var(--gray); margin-top: 4px; }
+
+/* Detail rows in modal */
+.detail-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 13px;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: var(--gray);
+    min-width: 130px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.detail-value { color: var(--dark); }
+
+/* Settings rows */
+.settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px;
+    background: var(--bg);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.settings-row-title { font-size: 13px; font-weight: 600; }
+.settings-row-sub   { font-size: 12px; color: var(--gray); margin-top: 2px; }
+.settings-coming    { font-size: 12px; color: #999; }
+
+/* Responsive */
+@media (max-width: 480px) {
+    .quick-actions { grid-template-columns: repeat(2, 1fr); }
+    .detail-row    { flex-direction: column; gap: 2px; }
+    .detail-label  { min-width: unset; }
+}

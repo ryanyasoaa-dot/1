@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxe Seller — Add Product</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/seller.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/product-form.css') }}">
+    <style>
+        .variant-grid {
+            display: grid;
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .variant-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            transition: var(--transition);
+        }
+        .variant-item:hover {
+            border-color: var(--pink);
+        }
+        .variant-item input[type="text"],
+        .variant-item input[type="number"] {
+            flex: 1;
+            max-width: 200px;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: var(--font-body);
+            font-size: 14px;
+        }
+        .variant-item input:focus {
+            border-color: var(--pink);
+            outline: none;
+        }
+        .variant-remove {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #ffebee;
+            background: #fff0f3;
+            color: #e74c3c;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+        .variant-remove:hover {
+            background: #e74c3c;
+            color: white;
+            border-color: #e74c3c;
+        }
+        .variant-btn {
+            background: var(--white);
+            border: 2px dashed var(--border);
+            color: var(--gray);
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: var(--font-body);
+            font-size: 14px;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            justify-content: center;
+        }
+        .variant-btn:hover {
+            border-color: var(--pink);
+            color: var(--pink);
+        }
+        .variant-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .image-upload-area {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+            background: var(--bg);
+        }
+        .image-upload-area:hover {
+            border-color: var(--pink);
+            background: var(--pink-pale);
+        }
+        .image-upload-area .upload-icon {
+            font-size: 36px;
+            margin-bottom: 12px;
+        }
+        .image-upload-area .upload-text {
+            color: var(--gray);
+            font-size: 14px;
+        }
+        .image-upload-area .upload-hint {
+            color: var(--pink);
+            font-size: 12px;
+            margin-top: 6px;
+        }
+        .image-preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .image-preview {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .image-preview img {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+        }
+        .image-preview-actions {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.7));
+            padding: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .image-preview-actions button {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .image-preview-actions button:hover {
+            background: rgba(255,255,255,0.4);
+        }
+        .primary-badge {
+            background: #2ecc71;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+        }
+        .remove-image {
+            background: #e74c3c !important;
+        }
+        .error-text {
+            color: #e74c3c;
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+        .error-text.show {
+            display: block;
+        }
+        .form-section {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .form-section-title {
+            font-family: var(--font-display);
+            font-size: 18px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--pink);
+        }
+        @media (max-width: 768px) {
+            .variant-item {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .variant-item > * { max-width: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="sidebarOverlay"></div>
+<button class="sidebar-toggle" id="sidebarToggle">&#9776;</button>
+
+<aside class="sidebar">
+    <div class="sidebar-logo">Luxe Seller</div>
+    <ul class="sidebar-menu">
+        <li><a href="/seller"><span class="icon">🏠</span> Dashboard</a></li>
+        <li class="menu-group">STORE</li>
+        <li><a href="/seller/products" class="active"><span class="icon">📦</span> Products</a></li>
+        <li><a href="/seller/orders"><span class="icon">🛒</span> Orders</a></li>
+        <li><a href="/seller/shipping"><span class="icon">🚚</span> Shipping</a></li>
+        <li class="menu-group">FINANCE</li>
+        <li><a href="/seller/earnings"><span class="icon">💰</span> Earnings</a></li>
+        <li class="menu-group">PROFILE</li>
+        <li><a href="/seller/store"><span class="icon">🏬</span> Store Profile</a></li>
+        <li><a href="/seller/reviews"><span class="icon">⭐</span> Reviews</a></li>
+    </ul>
+    <div class="sidebar-footer">
+        <div class="sidebar-user">🏪 {{ session.user.name }}</div>
+        <a href="/logout" class="logout-link">🚪 Logout</a>
+    </div>
+</aside>
+
+<div class="main">
+    <div class="topbar">
+        <div class="topbar-title">Add New Product</div>
+        <div class="topbar-right">Seller Panel</div>
+    </div>
+    <div class="content" style="padding: 20px;">
+        <form id="addProductForm" onsubmit="return submitProduct(event)">
+            <!-- Basic Info Section -->
+            <div class="form-section">
+                <div class="form-section-title">Product Information</div>
+                
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                    <div>
+                        <label style="display:block;margin-bottom:6px;font-size:13px;font-weight:600;color:var(--dark)">
+                            Product Name *
+                        </label>
+                        <input type="text" id="productName" name="name" required 
+                               style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">
+                        <div class="error-text" id="nameError">Product name is required</div>
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:6px;font-size:13px;font-weight:600;color:var(--dark)">
+                            Price (₱) *
+                        </label>
+                        <input type="number" id="productPrice" name="price" min="0" step="0.01" required
+                               style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">
+                        <div class="error-text" id="priceError">Price must be greater than 0</div>
+                    </div>
+                </div>
+
+                <div style="margin-top:16px">
+                    <label style="display:block;margin-bottom:6px;font-size:13px;font-weight:600;color:var(--dark)">
+                        Description
+                    </label>
+                    <textarea id="productDescription" name="description" rows="4"
+                              style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;resize:vertical;font-family:var(--font-body)"
+                              placeholder="Describe your product..."></textarea>
+                </div>
+
+                <div style="margin-top:16px">
+                    <label style="display:block;margin-bottom:6px;font-size:13px;font-weight:600;color:var(--dark)">
+                        Category *
+                    </label>
+                    <select id="productCategory" name="category" required
+                            style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:white">
+                        <option value="">Select category...</option>
+                        <option value="Dresses & Skirts">Dresses & Skirts</option>
+                        <option value="Tops & Blouses">Tops & Blouses</option>
+                        <option value="Activewear & Yoga Pants">Activewear & Yoga Pants</option>
+                        <option value="Lingerie & Sleepwear">Lingerie & Sleepwear</option>
+                        <option value="Jackets & Coats">Jackets & Coats</option>
+                        <option value="Shoes & Accessories">Shoes & Accessories</option>
+                    </select>
+                    <div class="error-text" id="categoryError">Please select a category</div>
+                </div>
+            </div>
+
+            <!-- Images Section -->
+            <div class="form-section">
+                <div class="form-section-title">Product Images</div>
+                
+                <input type="file" id="productImagesInput" multiple accept="image/*"
+                       style="display:none" onchange="handleImageSelect(event)">
+                
+                <div class="image-upload-area" onclick="document.getElementById('productImagesInput').click()">
+                    <div class="upload-icon">📷</div>
+                    <div class="upload-text">Click or drag to upload product images</div>
+                    <div class="upload-hint">Minimum 1 image required</div>
+                </div>
+
+                <div class="image-preview-grid" id="imagePreviewGrid"></div>
+                <div class="error-text show" id="imageError" style="display:none">Please upload at least 1 product image</div>
+
+                <div style="margin-top:12px;font-size:12px;color:var(--gray)">
+                    Tip: First image will be the main product image
+                </div>
+            </div>
+
+            <!-- Variants Section -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    Product Variants
+                    <span style="font-size:13px;color:var(--gray);font-weight:400;margin-left:8px">
+                        (<span id="variantTypeLabel">Color</span> variants)
+                    </span>
+                </div>
+
+                <p style="font-size:13px;color:var(--gray);margin-bottom:12px">
+                    Add different <span id="variantTypeDescription">color</span> options for your product. Each variant can have its own stock level.
+                </p>
+
+                <div id="variantsContainer" class="variant-grid"></div>
+
+                <button type="button" class="variant-btn" id="addVariantBtn" onclick="addVariant()">
+                    <span>+</span> Add Variant
+                </button>
+
+                <div class="error-text" id="variantError">Please add at least 1 variant</div>
+
+                <div style="margin-top:16px">
+                    <label style="display:block;margin-bottom:6px;font-size:13px;font-weight:600;color:var(--dark)">
+                        Set Stock for All Variants
+                    </label>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <input type="number" id="bulkStockInput" min="0" value="0"
+                               style="padding:8px 12px;border:1px solid var(--border);border-radius:6px;width:100px;font-size:14px">
+                        <button type="button" class="btn" onclick="setBulkStock()" style="padding:8px 16px;font-size:12px;margin:0">
+                            Apply to All
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:12px;margin-top:20px">
+                <a href="/seller/products" class="btn" style="background:var(--border);color:var(--dark);flex:1">Cancel</a>
+                <button type="submit" class="btn btn-primary" style="flex:2">Create Product</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/seller.js') }}"></script>
+<script src="{{ url_for('static', filename='js/product-form.js') }}"></script>
+</body>
+</html>

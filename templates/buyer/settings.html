@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxe — Settings</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
+</head>
+<body>
+
+<nav class="shop-navbar">
+    <div class="container d-flex align-items-center justify-content-between">
+        <a href="/" class="navbar-brand">Luxe</a>
+        <a href="/buyer" class="nav-icon-btn">👤</a>
+    </div>
+</nav>
+
+<div class="container py-4">
+    <nav class="shop-breadcrumb">
+        <a href="/buyer">My Account</a> / <span>Settings</span>
+    </nav>
+
+    <div class="row g-4">
+
+        <!-- Sidebar nav -->
+        <div class="col-12 col-md-3">
+            <div class="settings-card">
+                <div class="settings-nav d-flex flex-column gap-1">
+                    <a href="/buyer" class="nav-link"><span class="icon">🏠</span> Dashboard</a>
+                    <a href="/buyer/orders" class="nav-link"><span class="icon">📦</span> My Orders</a>
+                    <a href="/buyer/wishlist" class="nav-link"><span class="icon">❤️</span> Wishlist</a>
+                    <a href="/buyer/address_book" class="nav-link"><span class="icon">📍</span> Addresses</a>
+                    <a href="/buyer/settings" class="nav-link active"><span class="icon">⚙️</span> Settings</a>
+                    <a href="/logout" class="nav-link" style="color:#ef4444"><span class="icon">🚪</span> Logout</a>
+                </div>
+            </div>
+
+            <!-- Settings sub-nav -->
+            <div class="settings-card mt-3">
+                <div class="settings-nav d-flex flex-column gap-1">
+                    <a href="#" class="nav-link active" data-section="sectionProfile"><span class="icon">👤</span> Profile</a>
+                    <a href="#" class="nav-link" data-section="sectionPassword"><span class="icon">🔑</span> Password</a>
+                    <a href="#" class="nav-link" data-section="sectionNotifications"><span class="icon">🔔</span> Notifications</a>
+                    <a href="#" class="nav-link" data-section="sectionSecurity"><span class="icon">🛡️</span> Security</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings content -->
+        <div class="col-12 col-md-9">
+
+            <!-- Profile -->
+            <div class="settings-section active" id="sectionProfile">
+                <div class="settings-card">
+                    <h5>👤 Edit Profile</h5>
+                    <form onsubmit="saveProfile(event)">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label-custom">Full Name</label>
+                                <input type="text" id="profileName" class="form-control-custom" value="{{ session.user.name }}" placeholder="Your full name">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-custom">Email</label>
+                                <input type="email" class="form-control-custom" value="{{ session.user.email }}" disabled style="opacity:0.6">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-custom">Phone Number</label>
+                                <input type="tel" id="profilePhone" class="form-control-custom" placeholder="+63 912 345 6789">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-custom">Gender</label>
+                                <select class="form-control-custom" id="profileGender">
+                                    <option value="">Select gender</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn-pink px-4 py-2">Save Changes</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Password -->
+            <div class="settings-section" id="sectionPassword">
+                <div class="settings-card">
+                    <h5>🔑 Change Password</h5>
+                    <form onsubmit="changePassword(event)">
+                        <div class="d-flex flex-column gap-3" style="max-width:420px">
+                            <div>
+                                <label class="form-label-custom">Current Password</label>
+                                <input type="password" id="currentPw" class="form-control-custom" placeholder="Enter current password">
+                            </div>
+                            <div>
+                                <label class="form-label-custom">New Password</label>
+                                <input type="password" id="newPw" class="form-control-custom" placeholder="Enter new password">
+                            </div>
+                            <div>
+                                <label class="form-label-custom">Confirm New Password</label>
+                                <input type="password" id="confirmPw" class="form-control-custom" placeholder="Confirm new password">
+                            </div>
+                            <div>
+                                <button type="submit" class="btn-pink px-4 py-2">Update Password</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Notifications -->
+            <div class="settings-section" id="sectionNotifications">
+                <div class="settings-card">
+                    <h5>🔔 Notification Preferences</h5>
+                    <div class="d-flex flex-column gap-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div style="font-size:14px;font-weight:600">Order Updates</div>
+                                <div style="font-size:12px;color:var(--gray)">Get notified when your order status changes</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <hr class="my-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div style="font-size:14px;font-weight:600">Promotions & Deals</div>
+                                <div style="font-size:12px;color:var(--gray)">Receive exclusive offers and discounts</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <hr class="my-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div style="font-size:14px;font-weight:600">New Arrivals</div>
+                                <div style="font-size:12px;color:var(--gray)">Be the first to know about new products</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <hr class="my-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div style="font-size:14px;font-weight:600">Email Notifications</div>
+                                <div style="font-size:12px;color:var(--gray)">Receive notifications via email</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="mt-2">
+                            <button class="btn-pink px-4 py-2">Save Preferences</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security -->
+            <div class="settings-section" id="sectionSecurity">
+                <div class="settings-card">
+                    <h5>🛡️ Security Settings</h5>
+                    <div class="d-flex flex-column gap-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div style="font-size:14px;font-weight:600">Two-Factor Authentication</div>
+                                <div style="font-size:12px;color:var(--gray)">Add an extra layer of security to your account</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <hr class="my-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div style="font-size:14px;font-weight:600">Login Alerts</div>
+                                <div style="font-size:12px;color:var(--gray)">Get notified of new logins to your account</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <hr class="my-1">
+                        <div>
+                            <div style="font-size:14px;font-weight:600;margin-bottom:4px">Active Sessions</div>
+                            <div style="font-size:12px;color:var(--gray);margin-bottom:12px">Manage devices where you're logged in</div>
+                            <div class="address-card mb-2">
+                                <div style="font-size:13px;font-weight:600">Current Device</div>
+                                <div style="font-size:12px;color:var(--gray)">Browser · Active now</div>
+                            </div>
+                            <button class="btn btn-sm btn-outline-danger mt-2">Sign Out All Devices</button>
+                        </div>
+                        <hr class="my-1">
+                        <div>
+                            <div style="font-size:14px;font-weight:600;color:#ef4444;margin-bottom:4px">Delete Account</div>
+                            <div style="font-size:12px;color:var(--gray);margin-bottom:12px">Permanently delete your account and all data</div>
+                            <button class="btn btn-sm btn-outline-danger">Delete My Account</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="shop-toast" id="shopToast"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/shop.js') }}"></script>
+</body>
+</html>

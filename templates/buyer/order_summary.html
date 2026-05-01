@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxe — Order Confirmed</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
+</head>
+<body>
+
+<nav class="shop-navbar">
+    <div class="container d-flex align-items-center justify-content-between">
+        <a href="/" class="navbar-brand">Luxe</a>
+        <a href="/buyer" class="nav-icon-btn">👤 My Account</a>
+    </div>
+</nav>
+
+<div class="container py-5">
+
+    <!-- Steps -->
+    <div class="checkout-steps mb-5">
+        <div class="step done"><div class="step-circle">✓</div><div class="step-label">Cart</div></div>
+        <div class="step done"><div class="step-circle">✓</div><div class="step-label">Checkout</div></div>
+        <div class="step active"><div class="step-circle">3</div><div class="step-label">Confirmation</div></div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-7">
+
+            <!-- Success card -->
+            <div class="settings-card text-center mb-4">
+                <div style="font-size:64px;margin-bottom:16px">🎉</div>
+                <h2 style="font-family:var(--font-display);font-size:24px;font-weight:700;margin-bottom:8px">Order Placed!</h2>
+                <p style="color:var(--gray);font-size:14px">Thank you for your purchase. Your order is being processed.</p>
+            </div>
+
+            <!-- Order details -->
+            <div class="settings-card mb-4">
+                <h5>Order Details</h5>
+                <div class="summary-row"><span>Order ID</span><strong id="orderId">—</strong></div>
+                <div class="summary-row"><span>Date</span><span id="orderDate">—</span></div>
+                <div class="summary-row"><span>Total</span><strong id="orderTotal" style="color:var(--pink)">—</strong></div>
+                <div class="summary-row"><span>Status</span><span id="orderStatus">—</span></div>
+            </div>
+
+            <!-- Delivery timeline -->
+            <div class="settings-card mb-4">
+                <h5>Delivery Status</h5>
+                <div class="timeline">
+                    <div class="timeline-item done">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-title">Order Placed</div>
+                        <div class="timeline-date" id="orderDate2">—</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-title">Order Confirmed</div>
+                        <div class="timeline-date">Pending</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-title">Shipped</div>
+                        <div class="timeline-date">Pending</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-title">Delivered</div>
+                        <div class="timeline-date">Pending</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-3 flex-wrap">
+                <a href="/buyer/orders" class="btn-pink px-4 py-2 flex-grow-1 text-center">View My Orders</a>
+                <a href="/buyer/market" class="btn-outline-pink px-4 py-2 flex-grow-1 text-center">Continue Shopping</a>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/shop.js') }}"></script>
+<script>
+// Sync order date to timeline
+document.addEventListener('DOMContentLoaded', () => {
+    const d = document.getElementById('orderDate');
+    const d2 = document.getElementById('orderDate2');
+    if (d && d2) {
+        const observer = new MutationObserver(() => { d2.textContent = d.textContent; });
+        observer.observe(d, { childList: true, characterData: true, subtree: true });
+    }
+});
+</script>
+</body>
+</html>

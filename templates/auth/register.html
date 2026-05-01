@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxe - Create Account</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/register.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/psgc.css') }}">
+</head>
+<body>
+<div class="card" style="max-width:540px">
+    <div class="logo">Luxe</div>
+    <p class="subtitle">Create your account</p>
+
+    <!-- Step indicators -->
+    <div class="step-indicators">
+        <div class="step-ind active" id="ind1">
+            <div class="step-circle">1</div>
+            <div class="step-label">Personal Info</div>
+        </div>
+        <div class="step-line"></div>
+        <div class="step-ind" id="ind2">
+            <div class="step-circle">2</div>
+            <div class="step-label">Documents</div>
+        </div>
+        <div class="step-line"></div>
+        <div class="step-ind" id="ind3">
+            <div class="step-circle">3</div>
+            <div class="step-label">Location</div>
+        </div>
+    </div>
+
+    <div class="alert alert-error"   id="errorMsg"></div>
+    <div class="alert alert-success" id="successMsg"></div>
+
+    <form id="registerForm">
+
+        <!-- ══ STEP 1: Personal Info ══ -->
+        <div class="step-content" id="step1">
+            <div class="section-title">Personal Information</div>
+
+            <div class="form-group">
+                <label>First Name</label>
+                <input type="text" id="first_name" placeholder="Juan" required>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Middle Name <span style="font-weight:400;text-transform:none">(optional)</span></label>
+                    <input type="text" id="middle_name" placeholder="Santos">
+                </div>
+                <div class="form-group">
+                    <label>Last Name</label>
+                    <input type="text" id="last_name" placeholder="dela Cruz" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="email" placeholder="you@example.com" required>
+            </div>
+            <div class="form-group">
+                <label>Phone Number</label>
+                <input type="tel" id="phone" placeholder="+63 912 345 6789" required>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <div class="pw-wrap">
+                    <input type="password" id="password" placeholder="Create a strong password" required>
+                    <span class="pw-toggle" id="pwToggle">👁️</span>
+                </div>
+                <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
+                <div class="strength-text" id="strengthText"></div>
+            </div>
+            <div class="form-group">
+                <label>Confirm Password</label>
+                <div class="pw-wrap">
+                    <input type="password" id="confirm_password" placeholder="Re-enter your password" required>
+                    <span class="pw-toggle" id="pwToggle2">👁️</span>
+                </div>
+                <div class="strength-text" id="confirmText"></div>
+            </div>
+
+            <div class="section-title" style="margin-top:20px">I want to join as</div>
+            <div class="role-options">
+                <div class="role-option">
+                    <input type="radio" name="role" id="role_buyer" value="buyer" checked>
+                    <label for="role_buyer"><span class="icon">🛍️</span>Buyer</label>
+                </div>
+                <div class="role-option">
+                    <input type="radio" name="role" id="role_seller" value="seller">
+                    <label for="role_seller"><span class="icon">🏪</span>Seller</label>
+                </div>
+                <div class="role-option">
+                    <input type="radio" name="role" id="role_rider" value="rider">
+                    <label for="role_rider"><span class="icon">🏍️</span>Rider</label>
+                </div>
+            </div>
+
+            <button type="button" class="btn" onclick="goToStep(2)">Next →</button>
+        </div>
+
+        <!-- ══ STEP 2: Documents ══ -->
+        <div class="step-content" id="step2" style="display:none">
+
+            <!-- BUYER: valid ID only -->
+            <div id="buyerDocs">
+                <div class="section-title">Verification</div>
+                <p style="font-size:13px;color:var(--gray);margin-bottom:16px">Please upload a valid government-issued ID to verify your identity.</p>
+                <div class="form-group">
+                    <label>Valid ID <span style="color:var(--pink)">*</span></label>
+                    <div class="upload-area">
+                        <input type="file" id="buyer_valid_id" accept="image/*,.pdf" onchange="showName(this,'buyer_id_name')">
+                        <div class="up-icon">🪪</div>
+                        <div class="up-text"><span>Click to upload</span> Valid ID (JPG/PDF)</div>
+                        <div class="file-name" id="buyer_id_name"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SELLER docs -->
+            <div id="sellerDocs" style="display:none">
+                <div class="section-title">Store Details</div>
+                <div class="form-group">
+                    <label>Store Name <span style="color:var(--pink)">*</span></label>
+                    <input type="text" id="store_name" placeholder="e.g. Juan's Shop">
+                </div>
+                <div class="form-group">
+                    <label>Store Category <span style="color:var(--pink)">*</span></label>
+                    <div class="category-options" id="storeCategoryOptions">
+                        <label class="category-option">
+                            <input type="radio" name="store_category" value="Dresses &amp; Skirts" required>
+                            <span class="category-label">Dresses & Skirts</span>
+                        </label>
+                        <label class="category-option">
+                            <input type="radio" name="store_category" value="Tops &amp; Blouses" required>
+                            <span class="category-label">Tops & Blouses</span>
+                        </label>
+                        <label class="category-option">
+                            <input type="radio" name="store_category" value="Activewear &amp; Yoga Pants" required>
+                            <span class="category-label">Activewear & Yoga Pants</span>
+                        </label>
+                        <label class="category-option">
+                            <input type="radio" name="store_category" value="Lingerie &amp; Sleepwear" required>
+                            <span class="category-label">Lingerie & Sleepwear</span>
+                        </label>
+                        <label class="category-option">
+                            <input type="radio" name="store_category" value="Jackets &amp; Coats" required>
+                            <span class="category-label">Jackets & Coats</span>
+                        </label>
+                        <label class="category-option">
+                            <input type="radio" name="store_category" value="Shoes &amp; Accessories" required>
+                            <span class="category-label">Shoes & Accessories</span>
+                        </label>
+                    </div>
+                    <div class="category-error" id="categoryError" style="display:none;color:#e74c3c;font-size:12px;margin-top:4px;"></div>
+                </div>
+                <div class="form-group">
+                    <label>Store Description</label>
+                    <textarea id="store_description" placeholder="Tell buyers about your store..."></textarea>
+                </div>
+                <div class="section-title">Verification Documents</div>
+                <div class="form-group">
+                    <label>Valid ID <span style="color:var(--pink)">*</span></label>
+                    <div class="upload-area">
+                        <input type="file" id="valid_id" accept="image/*,.pdf" onchange="showName(this,'valid_id_name')">
+                        <div class="up-icon">🪪</div>
+                        <div class="up-text"><span>Click to upload</span> Valid ID (JPG/PDF)</div>
+                        <div class="file-name" id="valid_id_name"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Business Permit <span style="color:var(--pink)">*</span></label>
+                    <div class="upload-area">
+                        <input type="file" id="business_permit" accept="image/*,.pdf" onchange="showName(this,'bp_name')">
+                        <div class="up-icon">📄</div>
+                        <div class="up-text"><span>Click to upload</span> Business Permit (JPG/PDF)</div>
+                        <div class="file-name" id="bp_name"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>DTI / SEC Registration <span style="color:var(--pink)">*</span></label>
+                    <div class="upload-area">
+                        <input type="file" id="dti_sec" accept="image/*,.pdf" onchange="showName(this,'dti_name')">
+                        <div class="up-icon">📋</div>
+                        <div class="up-text"><span>Click to upload</span> DTI or SEC (JPG/PDF)</div>
+                        <div class="file-name" id="dti_name"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIDER docs -->
+            <div id="riderDocs" style="display:none">
+                <div class="section-title">Vehicle & License Details</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Vehicle Type</label>
+                        <input type="text" id="vehicle_type" placeholder="e.g. Motorcycle">
+                    </div>
+                    <div class="form-group">
+                        <label>Plate Number</label>
+                        <input type="text" id="plate_number" placeholder="e.g. ABC 1234">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>License Number <span style="color:var(--pink)">*</span></label>
+                    <input type="text" id="license_number" placeholder="e.g. N01-23-456789">
+                </div>
+                <div class="section-title">Verification Documents</div>
+                <div class="form-group">
+                    <label>Driver's License <span style="color:var(--pink)">*</span></label>
+                    <div class="upload-area">
+                        <input type="file" id="driver_license" accept="image/*,.pdf" onchange="showName(this,'dl_name')">
+                        <div class="up-icon">💼</div>
+                        <div class="up-text"><span>Click to upload</span> Driver's License (JPG/PDF)</div>
+                        <div class="file-name" id="dl_name"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Valid ID <span style="color:var(--pink)">*</span></label>
+                    <div class="upload-area">
+                        <input type="file" id="rider_valid_id" accept="image/*,.pdf" onchange="showName(this,'rider_id_name')">
+                        <div class="up-icon">🪪</div>
+                        <div class="up-text"><span>Click to upload</span> Valid ID (JPG/PDF)</div>
+                        <div class="file-name" id="rider_id_name"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:8px">
+                <button type="button" class="btn" style="background:var(--border);color:var(--dark);flex:1" onclick="goToStep(1)">← Back</button>
+                <button type="button" class="btn" style="flex:2" onclick="goToStep(3)">Next →</button>
+            </div>
+        </div>
+
+            <!-- ══ STEP 3: Location ══ -->
+            <div class="step-content" id="step3" style="display:none">
+                <div class="section-title">Your Location <span style="font-weight:400;text-transform:none">(optional)</span></div>
+
+                <div class="form-group">
+                    <label class="addr-label">Region</label>
+                    <div class="select-wrapper">
+                        <select class="addr-select" id="addrRegion">
+                            <option value="">Loading regions...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="addr-label">Province</label>
+                    <div class="select-wrapper">
+                        <select class="addr-select" id="addrProvince" disabled>
+                            <option value="">Select Province</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="addr-label">City / Municipality</label>
+                        <div class="select-wrapper">
+                            <select class="addr-select" id="addrCity" disabled>
+                                <option value="">Select City/Municipality</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="addr-label">Barangay</label>
+                        <div class="select-wrapper">
+                            <select class="addr-select" id="addrBarangay" disabled>
+                                <option value="">Select Barangay</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="addr-label">Street / House No.</label>
+                        <input type="text" class="addr-input" id="addrStreet" placeholder="e.g. 123 Rizal St.">
+                    </div>
+                    <div class="form-group">
+                        <label class="addr-label">ZIP Code</label>
+                        <input type="text" class="addr-input" id="addrZip" placeholder="e.g. 1127">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="addr-label">Pin Your Exact Location</label>
+                    <button type="button" class="btn-geolocate" id="btnGeolocate">
+                        📍 Use My Current Location
+                    </button>
+                    <div class="map-instructions">
+                        📍 <span id="mapInstructionText">Please tap or drag the pin to set your exact delivery location</span>
+                    </div>
+                    <div id="psgcMap"></div>
+                    <div class="map-coords" id="addrCoordsDisplay">📍 Lat: --, Lng: --</div>
+                    <div class="map-hint" id="mapHint">
+                        <span>Tip: Select an address above to auto-center, then adjust the pin for precision</span>
+                    </div>
+                    <input type="hidden" id="addrLatitude">
+                    <input type="hidden" id="addrLongitude">
+                    <div class="pin-status" id="pinStatus"></div>
+                </div>
+
+                <div style="display:flex;gap:10px;margin-top:8px">
+                    <button type="button" class="btn" style="background:var(--border);color:var(--dark);flex:1" onclick="goToStep(2)">← Back</button>
+                    <button type="submit" class="btn" style="flex:2" id="submitBtn">Create Account</button>
+                </div>
+            </div>
+
+    </form>
+
+    <div class="footer-link">Already have an account? <a href="/login">Sign in</a></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/psgc.js') }}"></script>
+<script src="{{ url_for('static', filename='js/register.js') }}"></script>
+</body>
+</html>

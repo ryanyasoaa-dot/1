@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxe — My Orders</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
+</head>
+<body>
+
+<nav class="shop-navbar">
+    <div class="container d-flex align-items-center justify-content-between">
+        <a href="/" class="navbar-brand">Luxe</a>
+        <div class="d-flex gap-2">
+            <a href="/buyer/cart" class="nav-icon-btn">🛒<span class="nav-badge cart-count" style="display:none">0</span></a>
+            <a href="/buyer" class="nav-icon-btn">👤</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container py-4">
+    <nav class="shop-breadcrumb">
+        <a href="/buyer">My Account</a> / <span>Orders</span>
+    </nav>
+
+    <div class="row g-4">
+
+        <!-- Account sidebar -->
+        <div class="col-12 col-md-3">
+            <div class="settings-card">
+                <div class="settings-nav d-flex flex-column gap-1">
+                    <a href="/buyer" class="nav-link"><span class="icon">🏠</span> Dashboard</a>
+                    <a href="/buyer/orders" class="nav-link active"><span class="icon">📦</span> My Orders</a>
+                    <a href="/buyer/wishlist" class="nav-link"><span class="icon">❤️</span> Wishlist</a>
+                    <a href="/buyer/address_book" class="nav-link"><span class="icon">📍</span> Addresses</a>
+                    <a href="/buyer/settings" class="nav-link"><span class="icon">⚙️</span> Settings</a>
+                    <a href="/logout" class="nav-link" style="color:#ef4444"><span class="icon">🚪</span> Logout</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Orders list -->
+        <div class="col-12 col-md-9">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div class="section-title mb-0">My Orders</div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-sm btn-outline-secondary active" onclick="filterOrders('all',this)">All</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('pending',this)">Pending</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('processing',this)">Processing</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('shipped',this)">Shipped</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('completed',this)">Completed</button>
+                </div>
+            </div>
+            <div id="ordersList"></div>
+        </div>
+
+    </div>
+</div>
+
+<div class="shop-toast" id="shopToast"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/shop.js') }}"></script>
+<script>
+let allOrders = [];
+
+async function initOrders() {
+    allOrders = await API.buyer.getOrders().catch(() => []);
+    renderOrders(allOrders);
+}
+
+function filterOrders(status, btn) {
+    document.querySelectorAll('.btn-outline-secondary').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const filtered = status === 'all' ? allOrders : allOrders.filter(o => o.status === status);
+    renderOrders(filtered);
+}
+
+function renderOrders(data) {
+    const container = document.getElementById('ordersList');
+    if (!data.length) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div><h5>No orders found</h5><p>Start shopping to see your orders here.</p><a href="/buyer/market" class="btn-pink px-4 py-2">Shop Now</a></div>`;
+        return;
+    }
+    container.innerHTML = data.map(o => `
+        <div class="card mb-3 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
+                    <div>
+                        <div style="font-size:14px;font-weight:700">Order #${(o.id||'').slice(0,8).toUpperCase()}</div>
+                        <div style="font-size:12px;color:var(--gray)">${formatDate(o.created_at)}</div>
+                    </div>
+                    <span class="badge badge-${o.status} text-uppercase">${o.status}</span>
+                </div>
+                <div style="font-size:13px;margin-bottom:12px">${o.items_count || 0} item(s) · <strong style="color:var(--pink)">${formatCurrency(o.total)}</strong></div>
+                <div class="timeline" style="padding-left:20px">
+                    <div class="timeline-item ${['pending','processing','shipped','completed'].includes(o.status) ? 'done' : ''}">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-title" style="font-size:12px">Order Placed</div>
+                    </div>
+                    <div class="timeline-item ${['processing','shipped','completed'].includes(o.status) ? 'done' : o.status === 'pending' ? '' : 'active'}">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-title" style="font-size:12px">Processing</div>
+                    </div>
+                    <div class="timeline-item ${o.status === 'completed' ? 'done' : o.status === 'shipped' ? 'active' : ''}">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-title" style="font-size:12px">Shipped</div>
+                    </div>
+                    <div class="timeline-item ${o.status === 'completed' ? 'done' : ''}">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-title" style="font-size:12px">Delivered</div>
+                    </div>
+                </div>
+                <a href="/buyer/order_summary?id=${o.id}" class="btn-outline-pink px-3 py-1 mt-3 d-inline-block" style="font-size:12px">View Details</a>
+            </div>
+        </div>
+    `).join('');
+}
+
+document.addEventListener('DOMContentLoaded', initOrders);
+</script>
+</body>
+</html>

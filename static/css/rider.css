@@ -1,0 +1,31 @@
+/* ============================================
+   RIDER.CSS — Rider dashboard specific styles
+   Depends on: dashboard.css
+   ============================================ */
+
+.earnings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    padding: 20px;
+}
+
+.earning-card {
+    background: linear-gradient(135deg, var(--pink), var(--pink-mid));
+    border-radius: 12px;
+    padding: 18px;
+    color: white;
+}
+
+.earning-card.light {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--dark);
+}
+
+.earning-label { font-size: 12px; opacity: 0.85; margin-bottom: 6px; }
+.earning-value { font-size: 22px; font-weight: 700; }
+
+@media (max-width: 480px) {
+    .earnings-grid { grid-template-columns: 1fr 1fr; }
+}

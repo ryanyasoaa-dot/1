@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxe Rider — Profile</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/rider.css') }}">
+</head>
+<body>
+
+<div id="sidebarOverlay"></div>
+<button class="sidebar-toggle" id="sidebarToggle">&#9776;</button>
+
+<aside class="sidebar">
+    <div class="sidebar-logo">Luxe Rider</div>
+    <ul class="sidebar-menu">
+        <li><a href="/rider"><span class="icon">🏠</span> Dashboard</a></li>
+        <li class="menu-group">WORK</li>
+        <li><a href="/rider/deliveries"><span class="icon">🚚</span> Deliveries</a></li>
+        <li class="menu-group">FINANCE</li>
+        <li><a href="/rider/earnings"><span class="icon">💰</span> Earnings</a></li>
+        <li class="menu-group">ACCOUNT</li>
+        <li><a href="/rider/profile" class="active"><span class="icon">👤</span> Profile</a></li>
+    </ul>
+    <div class="sidebar-footer">
+        <div class="sidebar-user">🏍️ {{ session.user.name }}</div>
+        <a href="/logout" class="logout-link">🚪 Logout</a>
+    </div>
+</aside>
+
+<div class="main">
+    <div class="topbar">
+        <div class="topbar-title">Profile</div>
+        <div class="topbar-right">Rider Panel</div>
+    </div>
+    <div class="content">
+        <div class="card" style="padding:28px;max-width:480px">
+            <div style="margin-bottom:18px">
+                <div class="detail-label" style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Full Name</div>
+                <div style="font-size:15px">{{ session.user.name }}</div>
+            </div>
+            <div style="margin-bottom:18px">
+                <div class="detail-label" style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Email</div>
+                <div style="font-size:15px">{{ session.user.email }}</div>
+            </div>
+            <div style="margin-bottom:18px">
+                <div class="detail-label" style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Role</div>
+                <div style="font-size:15px;text-transform:capitalize">{{ session.user.role }}</div>
+            </div>
+            <a href="/logout" class="btn btn-reject" style="text-decoration:none;display:inline-block;margin-top:8px">Logout</a>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/rider.js') }}"></script>
+</body>
+</html>

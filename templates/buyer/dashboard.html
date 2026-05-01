@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxe — My Account</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/buyer.css') }}">
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="container">
+        <a href="/" class="navbar-logo">Luxe</a>
+        <div class="navbar-actions">
+            <a href="/buyer/orders"  class="navbar-action-btn" title="Orders">📦</a>
+            <a href="/buyer/profile" class="navbar-action-btn" title="Profile">👤 {{ session.user.name.split()[0] }}</a>
+            <a href="/logout"        class="navbar-action-btn" title="Logout" style="color:#FF2BAC">Logout</a>
+        </div>
+    </div>
+</nav>
+
+<section class="buyer-section">
+    <div class="container">
+        <h2 style="font-family:var(--font-display);font-size:var(--font-size-3xl);margin-bottom:24px">
+            Welcome, {{ session.user.name }} 👋
+        </h2>
+        <div class="buyer-grid">
+            <a href="/buyer/orders"    class="buyer-action-card"><div class="buyer-action-icon">📦</div><div class="buyer-action-title">My Orders</div></a>
+            <a href="/buyer/wishlist"  class="buyer-action-card"><div class="buyer-action-icon">❤️</div><div class="buyer-action-title">Wishlist</div></a>
+            <a href="/buyer/profile"   class="buyer-action-card"><div class="buyer-action-icon">👤</div><div class="buyer-action-title">Profile</div></a>
+            <a href="/buyer/addresses" class="buyer-action-card"><div class="buyer-action-icon">📍</div><div class="buyer-action-title">Addresses</div></a>
+        </div>
+    </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/buyer.js') }}"></script>
+</body>
+</html>

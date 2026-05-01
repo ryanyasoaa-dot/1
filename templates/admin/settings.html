@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxe Admin — Settings</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+
+<div id="sidebarOverlay"></div>
+<button class="sidebar-toggle" id="sidebarToggle">&#9776;</button>
+
+<aside class="sidebar">
+    <div class="sidebar-logo">Luxe Admin</div>
+    <ul class="sidebar-menu">
+        <li><a href="/admin"><span class="icon">🏠</span> Dashboard</a></li>
+        <li class="menu-group">MANAGE</li>
+        <li><a href="/admin/applications"><span class="icon">📋</span> Applications</a></li>
+        <li><a href="/admin/users"><span class="icon">👥</span> Users</a></li>
+        <li><a href="/admin/sellers"><span class="icon">🏪</span> Sellers</a></li>
+        <li><a href="/admin/riders"><span class="icon">🏍️</span> Riders</a></li>
+        <li class="menu-group">STORE</li>
+        <li><a href="/admin/products"><span class="icon">📦</span> Products</a></li>
+        <li><a href="/admin/orders"><span class="icon">🛒</span> Orders</a></li>
+        <li class="menu-group">SYSTEM</li>
+        <li><a href="/admin/reports"><span class="icon">🚩</span> Reports</a></li>
+        <li><a href="/admin/settings" class="active"><span class="icon">⚙️</span> Settings</a></li>
+    </ul>
+    <div class="sidebar-footer">
+        <div class="sidebar-user">👤 {{ session.user.name }}</div>
+        <a href="/logout" class="logout-link">🚪 Logout</a>
+    </div>
+</aside>
+
+<div class="main">
+    <div class="topbar">
+        <div class="topbar-title">Settings</div>
+        <div class="topbar-right">Admin Panel</div>
+    </div>
+    <div class="content">
+        <div class="card" style="padding:28px;max-width:520px">
+            <h2 style="font-size:15px;font-weight:700;margin-bottom:20px">System Settings</h2>
+            <div style="display:flex;flex-direction:column;gap:12px">
+                <div class="settings-row">
+                    <div><div class="settings-row-title">Email Notifications</div><div class="settings-row-sub">Notify users on approval/rejection</div></div>
+                    <span class="settings-coming">Coming soon</span>
+                </div>
+                <div class="settings-row">
+                    <div><div class="settings-row-title">Maintenance Mode</div><div class="settings-row-sub">Temporarily disable the platform</div></div>
+                    <span class="settings-coming">Coming soon</span>
+                </div>
+                <div class="settings-row">
+                    <div><div class="settings-row-title">Auto-approve Buyers</div><div class="settings-row-sub">Skip manual approval for buyer accounts</div></div>
+                    <span class="settings-coming">Coming soon</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+</body>
+</html>

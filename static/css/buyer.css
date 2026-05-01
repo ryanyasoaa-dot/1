@@ -1,0 +1,90 @@
+/* ============================================
+   BUYER.CSS — Buyer pages specific styles
+   Uses style.css (shop) as base
+   ============================================ */
+
+.buyer-section {
+    padding: 48px 0;
+    min-height: 60vh;
+}
+
+.buyer-card {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid var(--color-border);
+    padding: 32px;
+}
+
+.buyer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 20px;
+}
+
+.buyer-action-card {
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    padding: 32px;
+    text-align: center;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    display: block;
+}
+
+.buyer-action-card:hover {
+    box-shadow: 0 8px 24px rgba(255,107,206,0.15);
+    transform: translateY(-2px);
+    border-color: #FF6BCE;
+}
+
+.buyer-action-icon  { font-size: 40px; margin-bottom: 12px; }
+.buyer-action-title { font-weight: 600; color: #1a1a3e; font-size: 15px; }
+
+.profile-label {
+    font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    color: #2d2d5f; margin-bottom: 6px; display: block;
+}
+
+.profile-value { font-size: 15px; color: #1a1a3e; }
+
+.empty-orders {
+    text-align: center;
+    padding: 48px;
+    color: #999;
+}
+
+.empty-orders .empty-icon { font-size: 48px; margin-bottom: 16px; }
+
+.btn-shop {
+    display: inline-block;
+    margin-top: 16px;
+    padding: 10px 24px;
+    background: linear-gradient(135deg, #FF2BAC, #FF6BCE);
+    color: #fff;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 0.3s ease;
+}
+
+.btn-shop:hover { box-shadow: 0 4px 12px rgba(255,43,172,0.3); }
+
+.btn-logout {
+    display: inline-block;
+    padding: 10px 24px;
+    background: #fee2e2;
+    color: #991b1b;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 13px;
+    margin-top: 8px;
+}
+
+@media (max-width: 480px) {
+    .buyer-grid { grid-template-columns: 1fr 1fr; }
+    .buyer-card { padding: 20px; }
+}

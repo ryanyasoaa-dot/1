@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxe — Shop</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="shop-navbar">
+    <div class="container">
+        <div class="d-flex align-items-center gap-3">
+            <a href="/" class="navbar-brand">Luxe</a>
+            <div class="search-bar flex-grow-1 d-none d-md-flex">
+                <input type="text" id="searchInput" placeholder="Search products...">
+                <button onclick="searchProducts()">🔍</button>
+            </div>
+        </div>
+        <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
+            <div class="search-bar d-flex d-md-none flex-grow-1">
+                <input type="text" id="searchInputMobile" placeholder="Search...">
+                <button onclick="searchProducts()">🔍</button>
+            </div>
+            <a href="/buyer/wishlist" class="nav-icon-btn">❤️</a>
+            <a href="/buyer/cart" class="nav-icon-btn">
+                🛒<span class="nav-badge cart-count" style="display:none">0</span>
+            </a>
+            <a href="/buyer" class="nav-icon-btn">👤</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container py-3">
+    <nav class="shop-breadcrumb">
+        <a href="/">Home</a> / <span>Shop</span>
+    </nav>
+
+    <div class="row g-3">
+
+        <!-- Filters sidebar -->
+        <div class="col-12 col-md-3">
+            <div class="filter-card">
+                <div class="filter-title">Categories</div>
+                <div class="filter-option"><input type="radio" name="cat" value="" checked> All</div>
+                <div class="filter-option"><input type="radio" name="cat" value="fashion"> 👗 Fashion</div>
+                <div class="filter-option"><input type="radio" name="cat" value="bags"> 👜 Bags</div>
+                <div class="filter-option"><input type="radio" name="cat" value="shoes"> 👠 Shoes</div>
+                <div class="filter-option"><input type="radio" name="cat" value="jewelry"> 💍 Jewelry</div>
+                <div class="filter-option"><input type="radio" name="cat" value="watches"> ⌚ Watches</div>
+                <div class="filter-option"><input type="radio" name="cat" value="accessories"> 🕶️ Accessories</div>
+            </div>
+
+            <div class="filter-card">
+                <div class="filter-title">Price Range</div>
+                <div class="price-range">
+                    <input type="number" class="price-input" id="minPrice" placeholder="Min">
+                    <span style="color:var(--gray)">—</span>
+                    <input type="number" class="price-input" id="maxPrice" placeholder="Max">
+                </div>
+                <button class="btn-pink w-100 mt-3 py-2" onclick="applyFilters()">Apply</button>
+            </div>
+
+            <div class="filter-card">
+                <div class="filter-title">Rating</div>
+                <div class="filter-option"><input type="radio" name="rating" value=""> All</div>
+                <div class="filter-option"><input type="radio" name="rating" value="4"> <span class="stars">★★★★</span>+ </div>
+                <div class="filter-option"><input type="radio" name="rating" value="3"> <span class="stars">★★★</span>+ </div>
+            </div>
+        </div>
+
+        <!-- Product grid -->
+        <div class="col-12 col-md-9">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div class="section-title mb-0">All Products</div>
+                <select class="form-select form-select-sm" style="width:auto" id="sortSelect" onchange="applyFilters()">
+                    <option value="">Sort by</option>
+                    <option value="price_asc">Price: Low to High</option>
+                    <option value="price_desc">Price: High to Low</option>
+                    <option value="newest">Newest</option>
+                    <option value="popular">Most Popular</option>
+                </select>
+            </div>
+            <div class="row g-2" id="productGrid">
+                <div class="col-12 text-center py-5">
+                    <div class="spinner-border" style="color:var(--pink)"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="shop-toast" id="shopToast"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/shop.js') }}"></script>
+<script>
+function searchProducts() {
+    const q = document.getElementById('searchInput')?.value || document.getElementById('searchInputMobile')?.value;
+    applyFilters({ search: q });
+}
+
+function applyFilters(extra = {}) {
+    const params = {
+        category: document.querySelector('input[name="cat"]:checked')?.value || '',
+        min_price: document.getElementById('minPrice')?.value || '',
+        max_price: document.getElementById('maxPrice')?.value || '',
+        rating:    document.querySelector('input[name="rating"]:checked')?.value || '',
+        sort:      document.getElementById('sortSelect')?.value || '',
+        ...extra,
+    };
+    loadMarket(params);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxe Seller — Shipping</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/seller.css') }}">
+</head>
+<body>
+
+<div id="sidebarOverlay"></div>
+<button class="sidebar-toggle" id="sidebarToggle">&#9776;</button>
+
+<aside class="sidebar">
+    <div class="sidebar-logo">Luxe Seller</div>
+    <ul class="sidebar-menu">
+        <li><a href="/seller"><span class="icon">🏠</span> Dashboard</a></li>
+        <li class="menu-group">STORE</li>
+        <li><a href="/seller/products"><span class="icon">📦</span> Products</a></li>
+        <li><a href="/seller/orders"><span class="icon">🛒</span> Orders</a></li>
+        <li><a href="/seller/shipping" class="active"><span class="icon">🚚</span> Shipping</a></li>
+        <li class="menu-group">FINANCE</li>
+        <li><a href="/seller/earnings"><span class="icon">💰</span> Earnings</a></li>
+        <li class="menu-group">PROFILE</li>
+        <li><a href="/seller/store"><span class="icon">🏬</span> Store Profile</a></li>
+        <li><a href="/seller/reviews"><span class="icon">⭐</span> Reviews</a></li>
+    </ul>
+    <div class="sidebar-footer">
+        <div class="sidebar-user">🏪 {{ session.user.name }}</div>
+        <a href="/logout" class="logout-link">🚪 Logout</a>
+    </div>
+</aside>
+
+<div class="main">
+    <div class="topbar">
+        <div class="topbar-title">Shipping & Delivery</div>
+        <div class="topbar-right">Seller Panel</div>
+    </div>
+    <div class="content">
+        <div class="card">
+            <div class="card-header"><h2>Active Deliveries</h2></div>
+            <div class="filter-tabs" style="padding:12px 16px;border-bottom:1px solid var(--border)">
+                <button class="filter-tab active" onclick="setFilterTab(this, loadShipping, 'all')">All</button>
+                <button class="filter-tab" onclick="setFilterTab(this, loadShipping, 'awaiting')">Awaiting Rider</button>
+                <button class="filter-tab" onclick="setFilterTab(this, loadShipping, 'transit')">In Transit</button>
+                <button class="filter-tab" onclick="setFilterTab(this, loadShipping, 'delivered')">Delivered</button>
+            </div>
+            <table>
+                <thead><tr><th>Order ID</th><th>Customer</th><th>Address</th><th>Rider</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody id="shippingTable"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/seller.js') }}"></script>
+</body>
+</html>

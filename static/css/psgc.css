@@ -1,0 +1,199 @@
+/* ============================================
+   PSGC.CSS — Address form with PSGC + map
+   ============================================ */
+
+.address-form-card {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #E8E8F0;
+    padding: 24px;
+}
+
+.addr-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: #2d2d5f;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.addr-select,
+.addr-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid #E8E8F0;
+    border-radius: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: #1a1a3e;
+    outline: none;
+    transition: all 0.25s ease;
+    background: #fff;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.addr-select:focus,
+.addr-input:focus {
+    border-color: #FF6BCE;
+    box-shadow: 0 0 0 3px rgba(255, 107, 206, 0.1);
+}
+
+.addr-select:disabled {
+    background: #f8f9fa;
+    color: #adb5bd;
+    cursor: not-allowed;
+}
+
+.select-wrapper {
+    position: relative;
+}
+
+.select-wrapper::after {
+    content: '▾';
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    pointer-events: none;
+    font-size: 12px;
+}
+
+.select-loading::after {
+    content: '⟳';
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: translateY(-50%) rotate(0deg); }
+    to   { transform: translateY(-50%) rotate(360deg); }
+}
+
+/* Map */
+#psgcMap {
+    height: 280px;
+    border-radius: 10px;
+    border: 1.5px solid #E8E8F0;
+    z-index: 0;
+    margin-top: 6px;
+    cursor: crosshair;
+    transition: border-color 0.3s ease;
+}
+
+#psgcMap:hover {
+    border-color: #FF6BCE;
+}
+
+#psgcMap.map-loading {
+    cursor: wait;
+}
+
+#psgcMap.map-loading::after {
+    content: '⟳ Updating map...';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #FF2BAC;
+    z-index: 1000;
+    border-radius: 10px;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Map instructions & hint */
+.map-instructions {
+    font-size: 12px;
+    color: #FF2BAC;
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+}
+
+.map-hint {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 4px;
+    padding: 4px 8px;
+    background: #f9f9fc;
+    border-radius: 4px;
+    border-left: 2px solid #FF6BCE;
+}
+
+/* Custom map marker styling */
+.custom-div-icon {
+    background: transparent;
+    border: none;
+}
+
+.custom-marker-icon {
+    background: #FF2BAC;
+    border: 3px solid #fff;
+    border-radius: 50% 50% 50% 0;
+    box-shadow: 0 2px 8px rgba(255, 43, 172, 0.3);
+    width: 24px;
+    height: 24px;
+    display: block;
+    transform: rotate(-45deg);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.custom-marker-icon:hover {
+    transform: rotate(-45deg) scale(1.1);
+    box-shadow: 0 4px 12px rgba(255, 43, 172, 0.4);
+}
+
+.pin-status {
+    font-size: 11px;
+    margin-top: 4px;
+    min-height: 16px;
+    transition: color 0.3s ease;
+}
+
+.pin-status.set {
+    color: #2ecc71;
+}
+
+.pin-status.unset {
+    color: #FF2BAC;
+}
+
+/* Additional map UI */
+.leaflet-container .leaflet-control-zoom {
+    border-radius: 8px !important;
+    overflow: hidden;
+}
+
+.leaflet-container .leaflet-control-zoom-in,
+.leaflet-container .leaflet-control-zoom-out {
+    background: #fff !important;
+    border-bottom: 1px solid #e8e8f0 !important;
+    color: #2c2c5c !important;
+    font-weight: 700 !important;
+    font-size: 18px !important;
+    width: 30px !important;
+    height: 30px !important;
+    line-height: 30px !important;
+}
+
+.leaflet-container .leaflet-control-zoom-in:hover,
+.leaflet-container .leaflet-control-zoom-out:hover {
+    background: #fff0f8 !important;
+    color: #FF2BAC !important;
+}

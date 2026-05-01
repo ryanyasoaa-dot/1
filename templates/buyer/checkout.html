@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxe — Checkout</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
+</head>
+<body>
+
+<nav class="shop-navbar">
+    <div class="container d-flex align-items-center justify-content-between">
+        <a href="/" class="navbar-brand">Luxe</a>
+        <a href="/buyer/cart" class="nav-icon-btn" style="font-size:14px">← Back to Cart</a>
+    </div>
+</nav>
+
+<div class="container py-4">
+
+    <!-- Steps -->
+    <div class="checkout-steps mb-4">
+        <div class="step done">
+            <div class="step-circle">✓</div>
+            <div class="step-label">Cart</div>
+        </div>
+        <div class="step active">
+            <div class="step-circle">2</div>
+            <div class="step-label">Checkout</div>
+        </div>
+        <div class="step">
+            <div class="step-circle">3</div>
+            <div class="step-label">Confirmation</div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Left: Address + Payment -->
+        <div class="col-12 col-lg-7">
+
+            <!-- Delivery Address -->
+            <div class="settings-card mb-3">
+                <h5>📍 Delivery Address</h5>
+                <div id="addressOptions"></div>
+                <input type="hidden" id="selectedAddressId">
+                <a href="/buyer/address_book" class="btn-outline-pink px-3 py-2 mt-3 d-inline-block" style="font-size:13px">
+                    + Add New Address
+                </a>
+            </div>
+
+            <!-- Payment Method -->
+            <div class="settings-card mb-3">
+                <h5>💳 Payment Method</h5>
+                <div class="d-flex flex-column gap-2">
+                    <label class="address-card d-flex align-items-center gap-3">
+                        <input type="radio" name="payment" value="cod" checked>
+                        <div>
+                            <div style="font-size:14px;font-weight:600">💵 Cash on Delivery</div>
+                            <div style="font-size:12px;color:var(--gray)">Pay when your order arrives</div>
+                        </div>
+                    </label>
+                    <label class="address-card d-flex align-items-center gap-3">
+                        <input type="radio" name="payment" value="gcash">
+                        <div>
+                            <div style="font-size:14px;font-weight:600">📱 GCash</div>
+                            <div style="font-size:12px;color:var(--gray)">Pay via GCash e-wallet</div>
+                        </div>
+                    </label>
+                    <label class="address-card d-flex align-items-center gap-3">
+                        <input type="radio" name="payment" value="card">
+                        <div>
+                            <div style="font-size:14px;font-weight:600">💳 Credit / Debit Card</div>
+                            <div style="font-size:12px;color:var(--gray)">Visa, Mastercard, etc.</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Order Notes -->
+            <div class="settings-card">
+                <h5>📝 Order Notes <span style="font-weight:400;font-size:13px;color:var(--gray)">(optional)</span></h5>
+                <textarea class="form-control-custom" id="orderNotes" rows="3" placeholder="Special instructions for your order..."></textarea>
+            </div>
+
+        </div>
+
+        <!-- Right: Summary -->
+        <div class="col-12 col-lg-5">
+            <div class="summary-box">
+                <div style="font-size:15px;font-weight:700;margin-bottom:16px">Order Summary</div>
+                <div id="checkoutItems" class="mb-3"></div>
+                <hr>
+                <div class="summary-row"><span>Subtotal</span><span id="subtotalAmt">₱0.00</span></div>
+                <div class="summary-row"><span>Shipping</span><span id="shippingAmt">₱0.00</span></div>
+                <div class="summary-row total"><span>Total</span><span id="totalAmt">₱0.00</span></div>
+                <button class="btn-pink w-100 py-3 mt-3" id="placeOrderBtn" onclick="placeOrder()">
+                    Place Order →
+                </button>
+                <div style="font-size:11px;color:var(--gray);text-align:center;margin-top:10px">
+                    By placing your order, you agree to our Terms of Service.
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="shop-toast" id="shopToast"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/shop.js') }}"></script>
+</body>
+</html>
