@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('usersTable'))   loadUsers();
     if (document.getElementById('sellersTable')) loadSellers();
     if (document.getElementById('ridersTable'))  loadRiders();
+    if (document.getElementById('ordersTable'))  loadAdminOrders();
     if (document.getElementById('productsTableBody')) loadAdminProducts();
 });
 
@@ -97,6 +98,7 @@ async function loadDashboard() {
 // ── Applications ──────────────────────────────────────────────
 let allApplications = [];
 let currentAppId    = null;
+let allAdminOrders  = [];
 
 async function loadApplications() {
     allApplications = await API.applications.getAll();
@@ -151,25 +153,34 @@ async function openAppModal(id) {
     const a = await API.applications.getOne(id);
     const set = (elId, val) => { const el = document.getElementById(elId); if (el) el.textContent = val ?? '—'; };
 
-    set('modal-name',     a.full_name);
-    set('modal-email',    a.email);
-    set('modal-phone',    a.phone);
-    set('modal-role',     a.role);
-    set('modal-status',   a.status);
-    set('modal-date',     formatDate(a.created_at));
-    set('modal-region',   a.region);
-    set('modal-city',     a.city);
-    set('modal-barangay', a.barangay);
-    set('modal-street',   a.street);
-    set('modal-zip',      a.zip_code);
-    set('modal-lat',      a.latitude);
-    set('modal-lng',      a.longitude);
+    set('modal-appid',   a.id);
+    set('modal-userid',  a.user_id);
+    set('modal-name',    a.full_name);
+    set('modal-email',   a.email);
+    set('modal-phone',   a.phone);
+    set('modal-role',    a.role);
+    set('modal-status',  a.status);
+    set('modal-date',    formatDate(a.created_at));
+    set('modal-region',  a.region);
+    set('modal-city',    a.city);
+    set('modal-barangay',a.barangay);
+    set('modal-street',  a.street);
+    set('modal-zip',     a.zip_code);
+    set('modal-lat',     a.latitude);
+    set('modal-lng',     a.longitude);
 
     document.getElementById('seller-row').style.display = a.role === 'seller' ? 'block' : 'none';
     document.getElementById('rider-row').style.display  = a.role === 'rider'  ? 'block' : 'none';
 
-    if (a.role === 'seller') { set('modal-store', a.store_name); set('modal-desc', a.store_description); }
-    if (a.role === 'rider')  { set('modal-vehicle', a.vehicle_type); set('modal-license', a.license_number); }
+    if (a.role === 'seller') {
+        set('modal-store',          a.store_name);
+        set('modal-store-category', a.store_category);
+        set('modal-desc',           a.store_description);
+    }
+    if (a.role === 'rider') {
+        set('modal-vehicle', a.vehicle_type);
+        set('modal-license', a.license_number);
+    }
 
     const docsEl = document.getElementById('modal-docs');
     docsEl.innerHTML = a.documents?.length
@@ -317,6 +328,89 @@ async function loadRiders() {
             </td>
         </tr>
     `).join('');
+}
+
+// ── Admin Orders ─────────────────────────────────────────────
+const adminOrderStatuses = ['pending', 'processing', 'ready_for_pickup', 'in_transit', 'delivered'];
+
+async function loadAdminOrders(filter = 'all') {
+    const tbody = document.getElementById('ordersTable');
+    if (!tbody) return;
+
+    allAdminOrders = await API.admin.getOrders().catch(() => []);
+    const filtered = filter === 'all' ? allAdminOrders : allAdminOrders.filter(o => o.status === filter);
+
+    if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🛒</div>No orders found.</div></td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(o => {
+        const buyer = o.buyer || {};
+        const rider = o.rider || {};
+        const statusOptions = adminOrderStatuses.map(status => `
+            <option value="${status}" ${status === o.status ? 'selected' : ''}>
+                ${status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+            </option>
+        `).join('');
+        return `
+        <tr>
+            <td>#${(o.id || '').slice(0,8)}</td>
+            <td>${buyer.first_name || ''} ${buyer.last_name || ''}</td>
+            <td>${rider.first_name || ''} ${rider.last_name || ''}</td>
+            <td>₱${Number(o.total_amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td>
+            <td><span class="badge badge-${o.status}">${o.status.replace(/_/g, ' ').toUpperCase()}</span></td>
+            <td>${formatDate(o.created_at)}</td>
+            <td>${(o.shipping_address?.street || '') + ', ' + (o.shipping_address?.city || '')}</td>
+            <td class="actions">
+                <button class="btn btn-view" onclick="showOrderDetails('${o.id}')">View</button>
+                <select class="status-select" onchange="adminUpdateOrderStatus('${o.id}', this.value)">${statusOptions}</select>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function filterAdminOrders(status, el) {
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    loadAdminOrders(status);
+}
+
+function showOrderDetails(orderId) {
+    const order = allAdminOrders.find(o => o.id === orderId);
+    if (!order) {
+        showToast('Order details not available.', true);
+        return;
+    }
+    const buyer = order.buyer || {};
+    const rider = order.rider || {};
+    const summary = [
+        `Order: #${(order.id || '').slice(0,8).toUpperCase()}`,
+        `Status: ${order.status.replace(/_/g, ' ').toUpperCase()}`,
+        `Buyer: ${buyer.first_name || ''} ${buyer.last_name || ''}`,
+        `Rider: ${rider.first_name || ''} ${rider.last_name || ''}`.trim(),
+        `Total: ₱${Number(order.total_amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+    ].filter(Boolean).join('\n');
+    alert(summary);
+}
+
+async function adminUpdateOrderStatus(orderId, status) {
+    if (!status) return;
+    const current = allAdminOrders.find(o => o.id === orderId);
+    if (!current || current.status === status) return;
+
+    let rider_id = '';
+    if (status === 'in_transit' && !current.rider) {
+        rider_id = prompt('Enter rider ID to assign for in_transit status (optional)') || '';
+    }
+
+    const res = await API.admin.updateOrderStatus(orderId, status, rider_id).catch(() => ({ error: 'Network error.' }));
+    if (res.success) {
+        showToast('Order status overridden successfully.');
+        loadAdminOrders();
+    } else {
+        showToast(res.error || 'Failed to update status.', true);
+    }
 }
 
 // ── Product moderation ────────────────────────────────────────

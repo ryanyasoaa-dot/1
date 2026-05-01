@@ -33,10 +33,27 @@
 .qa-sub   { font-size: 11px; color: var(--gray); margin-top: 4px; }
 
 /* Detail rows in modal */
+.detail-section {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+}
+
+.detail-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--pink);
+    margin-bottom: 10px;
+}
+
 .detail-row {
     display: flex;
     gap: 8px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     font-size: 13px;
 }
 
@@ -49,7 +66,8 @@
     letter-spacing: 0.3px;
 }
 
-.detail-value { color: var(--dark); }
+.detail-value { color: var(--dark); word-break: break-all; }
+.detail-value.mono { font-family: monospace; font-size: 11px; color: #888; }
 
 /* Settings rows */
 .settings-row {

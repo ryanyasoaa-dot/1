@@ -78,7 +78,13 @@ class OrderService:
         total_orders = len(orders)
         total_spent = sum(float(o.get('total_amount', 0)) for o in orders)
         
-        status_counts = {'pending': 0, 'processing': 0, 'shipped': 0, 'delivered': 0, 'cancelled': 0}
+        status_counts = {
+            'pending': 0,
+            'processing': 0,
+            'ready_for_pickup': 0,
+            'in_transit': 0,
+            'delivered': 0,
+        }
         for order in orders:
             status = order.get('status', 'pending')
             if status in status_counts:

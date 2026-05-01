@@ -42,8 +42,23 @@
     </div>
     <div class="content">
         <div class="card">
-            <div class="card-header"><h2>All Orders</h2></div>
-            <div class="empty-state"><div class="empty-icon">🛒</div>No orders yet. Orders will appear here once buyers start purchasing.</div>
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h2>All Orders</h2>
+                <div class="filter-tabs" style="padding:0">
+                    <button class="filter-tab active" onclick="filterAdminOrders('all', this)">All</button>
+                    <button class="filter-tab" onclick="filterAdminOrders('pending', this)">Pending</button>
+                    <button class="filter-tab" onclick="filterAdminOrders('processing', this)">Processing</button>
+                    <button class="filter-tab" onclick="filterAdminOrders('ready_for_pickup', this)">Ready for Pickup</button>
+                    <button class="filter-tab" onclick="filterAdminOrders('in_transit', this)">In Transit</button>
+                    <button class="filter-tab" onclick="filterAdminOrders('delivered', this)">Delivered</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead><tr><th>Order</th><th>Buyer</th><th>Rider</th><th>Total</th><th>Status</th><th>Date</th><th>Address</th><th>Actions</th></tr></thead>
+                    <tbody id="ordersTable"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

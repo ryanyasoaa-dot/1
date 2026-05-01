@@ -34,7 +34,7 @@ const API = {
             }).then(async r => ({ ok: r.ok, data: await r.json() })),
 
         register: (formData) =>
-            fetch('/api/register', {
+            fetch('/register', {
                 method: 'POST',
                 body: formData,
             }).then(async r => ({ ok: r.ok, data: await r.json() })),
@@ -105,6 +105,18 @@ const API = {
         getProducts:   (params = '') => fetch(`/buyer/api/products?${params}`).then(r => r.json()),
         getCategories: () => fetch('/api/categories').then(r => r.json()),
         getProduct:    (id) => fetch(`/buyer/api/products/${id}`).then(r => r.json()),
+    },
+
+    // ── Admin: Order management ──────────────────────────────
+    admin: {
+        getOrders: (status = '') =>
+            fetch(`/admin/api/orders${status ? `?status=${encodeURIComponent(status)}` : ''}`).then(r => r.json()),
+        updateOrderStatus: (id, status, rider_id = '') =>
+            fetch(`/admin/api/orders/${id}/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status, rider_id }),
+            }).then(r => r.json()),
     },
 
     // ── Admin: Product moderation ─────────────────────────────

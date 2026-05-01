@@ -226,6 +226,195 @@ def api_addresses():
     user_id = session['user']['id']
     return jsonify(user_model.get_addresses(user_id))
 
+@buyer_bp.route('/api/addresses', methods=['POST'])
+@buyer_required
+def api_create_address():
+    user_id = session['user']['id']
+    data = request.get_json() or {}
+    
+    # Validate required fields
+    required_fields = ['label', 'region', 'city', 'barangay', 'street', 'zip_code']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'error': f'{field.replace("_", " ").title()} is required'}), 400
+    
+    # Prepare address data
+    address_data = {
+        'user_id': user_id,
+        'label': data['label'],
+        'region': data['region'],
+        'city': data['city'],
+        'barangay': data['barangay'],
+        'street': data['street'],
+        'zip_code': data['zip_code'],
+        'latitude': data.get('latitude'),
+        'longitude': data.get('longitude')
+    }
+    
+    # Check if this is the first address (make it default)
+    addresses = user_model.get_addresses(user_id)
+    if len(addresses) == 0:
+        address_data['is_default'] = True
+    
+    address = user_model.create_address(address_data)
+    if address:
+        return jsonify({'success': True, 'address': address})
+    else:
+        return jsonify({'error': 'Failed to create address'}), 500
+
+@buyer_bp.route('/api/addresses/<address_id>', methods=['PUT'])
+@buyer_required
+def api_update_address(address_id):
+    user_id = session['user']['id']
+    data = request.get_json() or {}
+    
+    # Verify address belongs to user
+    address = user_model.get_address_by_id(user_id, address_id)
+    if not address:
+        return jsonify({'error': 'Address not found'}), 404
+    
+    # Update address fields
+    update_data = {}
+    if 'label' in data:
+        update_data['label'] = data['label']
+    if 'region' in data:
+        update_data['region'] = data['region']
+    if 'city' in data:
+        update_data['city'] = data['city']
+    if 'barangay' in data:
+        update_data['barangay'] = data['barangay']
+    if 'street' in data:
+        update_data['street'] = data['street']
+    if 'zip_code' in data:
+        update_data['zip_code'] = data['zip_code']
+    if 'latitude' in data:
+        update_data['latitude'] = data['latitude']
+    if 'longitude' in data:
+        update_data['longitude'] = data['longitude']
+    
+    if not update_data:
+        return jsonify({'error': 'No fields to update'}), 400
+    
+    updated_address = user_model.update_address(user_id, address_id, update_data)
+    if updated_address:
+        return jsonify({'success': True, 'address': updated_address})
+    else:
+        return jsonify({'error': 'Failed to update address'}), 500
+
+@buyer_bp.route('/api/addresses/<address_id>', methods=['DELETE'])
+@buyer_required
+def api_delete_address(address_id):
+    user_id = session['user']['id']
+    
+    # Verify address belongs to user
+    address = user_model.get_address_by_id(user_id, address_id)
+    if not address:
+        return jsonify({'error': 'Address not found'}), 404
+    
+    # Don't allow deletion of default address without setting another as default
+    if address.get('is_default'):
+        addresses = user_model.get_addresses(user_id)
+        if len(addresses) <= 1:
+            return jsonify({'error': 'Cannot delete the only address. Please add another address first.'}), 400
+    
+    success = user_model.delete_address(user_id, address_id)
+    if success:
+        # If deleted address was default, set another as default
+        if address.get('is_default'):
+            addresses = user_model.get_addresses(user_id)
+            if addresses:
+                user_model.update_address(user_id, addresses[0]['id'], {'is_default': True})
+        return jsonify({'success': True})
+    else:
+        return jsonify({'error': 'Failed to delete address'}), 500
+
+@buyer_bp.route('/api/addresses/<address_id>/default', methods=['POST'])
+@buyer_required
+def api_set_default_address(address_id):
+    user_id = session['user']['id']
+    
+    # Verify address belongs to user
+    address = user_model.get_address_by_id(user_id, address_id)
+    if not address:
+        return jsonify({'error': 'Address not found'}), 404
+    
+    # Remove default flag from all addresses
+    addresses = user_model.get_addresses(user_id)
+    for addr in addresses:
+        if addr['id'] != address_id:
+            user_model.update_address(user_id, addr['id'], {'is_default': False})
+    
+    # Set this address as default
+    updated_address = user_model.update_address(user_id, address_id, {'is_default': True})
+    if updated_address:
+        return jsonify({'success': True, 'address': updated_address})
+    else:
+        return jsonify({'error': 'Failed to set default address'}), 500
+
+@buyer_bp.route('/api/profile', methods=['PUT'])
+@buyer_required
+def api_update_profile():
+    user_id = session['user']['id']
+    data = request.get_json() or {}
+    
+    # Prepare update data
+    update_data = {}
+    if 'full_name' in data:
+        # Split full name into first and last name (simple approach)
+        name_parts = data['full_name'].strip().split(' ', 1)
+        update_data['first_name'] = name_parts[0]
+        update_data['last_name'] = name_parts[1] if len(name_parts) > 1 else ''
+    if 'phone' in data:
+        update_data['phone'] = data['phone']
+    
+    if not update_data:
+        return jsonify({'error': 'No fields to update'}), 400
+    
+    updated_user = user_model.update(user_id, update_data)
+    if updated_user:
+        # Update session user data
+        session['user'].update({
+            'first_name': updated_user.get('first_name'),
+            'last_name': updated_user.get('last_name'),
+            'phone': updated_user.get('phone')
+        })
+        # Reconstruct name for display
+        session['user']['name'] = f"{updated_user.get('first_name', '')} {updated_user.get('last_name', '')}".strip()
+        return jsonify({'success': True, 'user': updated_user})
+    else:
+        return jsonify({'error': 'Failed to update profile'}), 500
+
+@buyer_bp.route('/api/password', methods=['PUT'])
+@buyer_required
+def api_change_password():
+    user_id = session['user']['id']
+    data = request.get_json() or {}
+    
+    current_password = data.get('current_password')
+    new_password = data.get('new_password')
+    
+    if not current_password or not new_password:
+        return jsonify({'error': 'Current password and new password are required'}), 400
+    
+    if len(new_password) < 8:
+        return jsonify({'error': 'New password must be at least 8 characters'}), 400
+    
+    # Get current user to verify password
+    user = user_model.get_by_id(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # Verify current password (plaintext comparison - in production use proper hashing)
+    if user['password'] != current_password:
+        return jsonify({'error': 'Current password is incorrect'}), 400
+    
+    # Update password
+    updated_user = user_model.update(user_id, {'password': new_password})
+    if updated_user:
+        return jsonify({'success': True, 'message': 'Password changed successfully'})
+    else:
+        return jsonify({'error': 'Failed to change password'}), 500
+
 @buyer_bp.route('/profile')
 @buyer_required
 def profile():

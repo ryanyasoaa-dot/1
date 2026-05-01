@@ -356,7 +356,33 @@ async function loadOrderSummary() {
     set('orderId',    `#${order.id?.slice(0,8).toUpperCase()}`);
     set('orderDate',  formatDate(order.created_at));
     set('orderTotal', formatCurrency(order.total));
-    set('orderStatus', `<span class="badge bg-success">${order.status}</span>`);
+    set('orderStatus', `<span class="badge bg-dark">${order.status.replace(/_/g, ' ').toUpperCase()}</span>`);
+
+    const statusOrder = ['pending', 'processing', 'ready_for_pickup', 'in_transit', 'delivered'];
+    const currentIndex = statusOrder.indexOf(order.status);
+
+    statusOrder.forEach((status, index) => {
+        const item = document.getElementById(`step-${status}`);
+        const dateEl = document.getElementById(`step-${status}-date`);
+        if (!item || !dateEl) return;
+
+        if (index <= currentIndex) {
+            item.classList.add('done');
+            item.classList.remove('active');
+        } else {
+            item.classList.remove('done');
+            item.classList.remove('active');
+        }
+        if (index === currentIndex) {
+            item.classList.add('active');
+        }
+
+        if (status === 'pending') {
+            dateEl.textContent = formatDate(order.created_at);
+        } else {
+            dateEl.textContent = index <= currentIndex ? 'Completed' : 'Pending';
+        }
+    });
 }
 
 // ── Orders history page ───────────────────────────────────────
@@ -563,9 +589,97 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('productName'))    loadProduct();
     if (document.getElementById('cartItems'))      loadCart();
     if (document.getElementById('checkoutItems'))  loadCheckout();
-    if (document.getElementById('orderId'))        loadOrderSummary();
-    if (document.getElementById('ordersList'))     loadOrders();
+    if (document.getElementById('orderId')) {
+        loadOrderSummary();
+        setInterval(() => loadOrderSummary(), 15000);
+    }
+    if (document.getElementById('ordersList')) {
+        loadOrders();
+        setInterval(() => loadOrders(), 15000);
+    }
     if (document.getElementById('wishlistGrid'))   loadWishlist();
     if (document.getElementById('addressList'))    { loadAddressBook(); initAddressMap(); }
     if (document.querySelector('.settings-nav'))   initSettings();
+    // Initialize profile picture preview if on settings page
+    if (document.getElementById('profilePreview')) {
+        initProfilePicturePreview();
+    }
 });
+
+// ── Profile Picture Functions ─────────────────────────────────────
+function initProfilePicturePreview() {
+    const preview = document.getElementById('profilePreview');
+    const input = document.getElementById('profilePictureInput');
+    const changeBtn = document.getElementById('changePicBtn');
+    
+    // Set initial preview from session or default
+    const user = {{ session.user|tojson }};
+    if (user && user.profile_picture) {
+        preview.src = `/${user.profile_picture}`;
+    } else {
+        preview.src = '/static/uploads/default-avatar.png'; // You'll need to create this
+    }
+    
+    // Handle change button click
+    if (changeBtn) {
+        changeBtn.addEventListener('click', () => {
+            input.click();
+        });
+    }
+    
+    // Handle file selection
+    if (input) {
+        input.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    preview.src = event.target.result;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+}
+
+async function saveProfile(e) {
+    e.preventDefault();
+    const formData = new FormData();
+    
+    // Get form values
+    const fullName = document.getElementById('profileName')?.value.trim();
+    const phone = document.getElementById('profilePhone')?.value.trim();
+    const profilePictureInput = document.getElementById('profilePictureInput');
+    
+    // Add text fields
+    if (fullName) {
+        formData.append('full_name', fullName);
+    }
+    if (phone) {
+        formData.append('phone', phone);
+    }
+    
+    // Add profile picture if selected
+    if (profilePictureInput && profilePictureInput.files[0]) {
+        formData.append('profile_picture', profilePictureInput.files[0]);
+    }
+    
+    try {
+        const res = await fetch('/buyer/api/profile', {
+            method: 'PUT',
+            body: formData
+        }).then(r => r.json()).catch(() => ({ error: 'Network error.' }));
+        
+        showToast(res.success ? 'Profile updated!' : (res.error || 'Failed.'), !res.success);
+        
+        // Update preview if picture was uploaded successfully
+        if (res.success && res.user && res.user.profile_picture) {
+            document.getElementById('profilePreview').src = `/${res.user.profile_picture}`;
+            // Update session data
+            const user = {{ session.user|tojson }};
+            user.profile_picture = res.user.profile_picture;
+        }
+    } catch (error) {
+        showToast('Network error.', true);
+    }
+}

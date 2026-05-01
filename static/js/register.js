@@ -210,7 +210,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     }
 
     try {
-        const res  = await fetch('/api/register', { method: 'POST', body: fd });
+        const res  = await fetch('/register', { method: 'POST', body: fd });
         const data = await res.json();
 
         if (res.ok) {

@@ -28,31 +28,32 @@ def _handle_registration():
     try:
         result = auth_service.register_user(request.form, request.files)
         if result.get('success'):
-            flash('Registration successful! Please wait for admin approval.', 'success')
-            return redirect(url_for('auth.login'))
+            return jsonify({'success': True, 'message': 'Registration successful! Please wait for admin approval.'})
         return jsonify({'error': result.get('error', 'Registration failed')}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 def _handle_login():
     try:
+        data = request.get_json() or request.form
         result = auth_service.authenticate_user(
-            request.form.get('email', '').strip().lower(),
-            request.form.get('password', '')
+            data.get('email', '').strip().lower(),
+            data.get('password', '')
         )
         if result.get('success'):
             session['user'] = result['user']
-            # Redirect based on role
             role = result['user'].get('role', 'user')
             if role == 'admin':
-                return redirect(url_for('admin.dashboard'))
+                redirect_url = url_for('admin.dashboard')
             elif role == 'seller':
-                return redirect(url_for('seller.dashboard'))
+                redirect_url = url_for('seller.dashboard')
             elif role == 'buyer':
-                return redirect(url_for('index'))
+                redirect_url = url_for('index')
             elif role == 'rider':
-                return redirect(url_for('rider.dashboard'))
-            return redirect(url_for('index'))
+                redirect_url = url_for('rider.dashboard')
+            else:
+                redirect_url = url_for('index')
+            return jsonify({'success': True, 'redirect': redirect_url})
         return jsonify({'error': result.get('error', 'Invalid credentials')}), 401
     except Exception as e:
         return jsonify({'error': str(e)}), 500

@@ -1,33 +1,16 @@
--- ============================================
--- LUXE E-COMMERCE - SUPABASE SQL SCHEMA
--- Run this entire file in Supabase SQL Editor
--- ============================================ 
-
--- Drop old tables if they exist (clean slate)
-drop table if exists application_documents cascade;
-drop table if exists applications          cascade;
-drop table if exists addresses             cascade;
-drop table if exists product_images        cascade;
-drop table if exists product_variants      cascade;
-drop table if exists products              cascade;
-drop table if exists cart_items            cascade;
-drop table if exists profiles              cascade;
-drop table if exists users                 cascade;
-
--- ============================================
--- USERS TABLE
--- ============================================
 create table users (
-    id          uuid        not null references auth.users(id) on delete cascade,
-    first_name  text        not null,
-    middle_name text,
-    last_name   text        not null,
-    phone       text        not null,
-    gender      text        check (gender in ('male', 'female', 'other')),
-    birthdate   date,
-    role        text        not null default 'user' check (role in ('user', 'admin')),
-    created_at  timestamptz not null default now(),
-    updated_at  timestamptz not null default now(),
+    id              uuid        not null references auth.users(id) on delete cascade,
+    first_name      text        not null,
+    middle_name     text,
+    last_name       text        not null,
+    phone           text        not null,
+    gender          text        check (gender in ('male', 'female', 'other')),
+    birthdate       date,
+    role            text        not null default 'user' check (role in ('user', 'admin', 'buyer', 'seller', 'rider')),
+    profile_picture text, 
+    password        text,  -- In production, this should be hashed  <-- LINE 30
+    created_at      timestamptz not null default now(),
+    updated_at      timestamptz not null default now(),
     primary key (id)
 );
 

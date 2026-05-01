@@ -55,31 +55,49 @@
             <div class="settings-section active" id="sectionProfile">
                 <div class="settings-card">
                     <h5>👤 Edit Profile</h5>
-                    <form onsubmit="saveProfile(event)">
+                    <form id="profileForm" onsubmit="saveProfile(event)" enctype="multipart/form-data">
                         <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label-custom">Full Name</label>
-                                <input type="text" id="profileName" class="form-control-custom" value="{{ session.user.name }}" placeholder="Your full name">
+                            <div class="col-md-4">
+                                <div class="text-center mb-3">
+                                    <div class="profile-picture-container">
+                                        <img id="profilePreview" src="" alt="Profile Picture" class="profile-picture-img">
+                                        <div class="profile-picture-overlay">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="changePicBtn">
+                                                Change Picture
+                                            </button>
+                                            <input type="file" id="profilePictureInput" accept="image/*" style="display:none;">
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">Recommended size: 200x200px</small>
+                                </div>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label-custom">Email</label>
-                                <input type="email" class="form-control-custom" value="{{ session.user.email }}" disabled style="opacity:0.6">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label-custom">Phone Number</label>
-                                <input type="tel" id="profilePhone" class="form-control-custom" placeholder="+63 912 345 6789">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label-custom">Gender</label>
-                                <select class="form-control-custom" id="profileGender">
-                                    <option value="">Select gender</option>
-                                    <option value="male">Male</option>
-                                    <option value="female">Female</option>
-                                    <option value="other">Other</option>
-                                </select>
-                            </div>
-                            <div class="col-12">
-                                <button type="submit" class="btn-pink px-4 py-2">Save Changes</button>
+                            <div class="col-md-8">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label-custom">Full Name</label>
+                                        <input type="text" id="profileName" class="form-control-custom" value="{{ session.user.name }}" placeholder="Your full name">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-custom">Email</label>
+                                        <input type="email" class="form-control-custom" value="{{ session.user.email }}" disabled style="opacity:0.6">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-custom">Phone Number</label>
+                                        <input type="tel" id="profilePhone" class="form-control-custom" placeholder="+63 912 345 6789">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-custom">Gender</label>
+                                        <select class="form-control-custom" id="profileGender">
+                                            <option value="">Select gender</option>
+                                            <option value="male">Male</option>
+                                            <option value="female">Female</option>
+                                            <option value="other">Other</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <button type="submit" class="btn-pink px-4 py-2">Save Changes</button>
+                                </div>
                             </div>
                         </div>
                     </form>

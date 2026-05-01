@@ -28,6 +28,23 @@ auth_service = AuthService()
 def dashboard():
     return render_template('admin/dashboard.html')
 
+@admin_bp.route('/applications')
+@admin_required
+def applications():
+    apps = app_model.get_pending()
+    return render_template('admin/applications.html', applications=apps)
+
+@admin_bp.route('/users')
+@admin_required
+def users():
+    all_users = user_model.get_all()
+    return render_template('admin/users.html', users=all_users)
+
+@admin_bp.route('/settings')
+@admin_required
+def settings():
+    return render_template('admin/settings.html')
+
 @admin_bp.route('/sellers')
 @admin_required
 def sellers():
@@ -59,6 +76,20 @@ def reports():
     return render_template('admin/reports.html', stats=stats)
 
 # API endpoints for admin
+@admin_bp.route('/api/applications', methods=['GET'])
+@admin_required
+def api_get_applications():
+    apps = app_model.get_all()
+    return jsonify(apps)
+
+@admin_bp.route('/api/applications/<app_id>', methods=['GET'])
+@admin_required
+def api_get_application(app_id):
+    app = app_model.get_by_id(app_id)
+    if not app:
+        return jsonify({'error': 'Not found'}), 404
+    return jsonify(app)
+
 @admin_bp.route('/api/applications/<app_id>/status', methods=['POST'])
 @admin_required
 def update_application_status(app_id):
@@ -68,9 +99,14 @@ def update_application_status(app_id):
     
     if status not in ('approved', 'rejected'):
         return jsonify({'error': 'Invalid status'}), 400
-    
+
     try:
-        app_model.update_status(app_id, status, session['user']['id'], notes)
+        application = app_model.get_by_id(app_id)
+        if not application:
+            return jsonify({'error': 'Application not found'}), 404
+        app_model.update_status(app_id, status, notes=notes)
+        if status == 'approved':
+            user_model.update_role(application['user_id'], application['role'])
         return jsonify({'success': True, 'message': 'Status updated'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -125,3 +161,25 @@ def update_product_status(product_id):
         return jsonify({'success': True, 'product': updated})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@admin_bp.route('/api/orders', methods=['GET'])
+@admin_required
+def api_admin_orders():
+    status = request.args.get('status', '').strip() or None
+    orders = order_model.get_all()
+    if status:
+        orders = [o for o in orders if o.get('status') == status]
+    return jsonify(orders)
+
+@admin_bp.route('/api/orders/<order_id>/status', methods=['POST'])
+@admin_required
+def api_admin_order_status(order_id):
+    data = request.get_json() or {}
+    status = data.get('status')
+    rider_id = data.get('rider_id')
+    if not status:
+        return jsonify({'error': 'Status is required'}), 400
+    updated = order_model.update_status_for_admin(order_id, status, rider_id)
+    if not updated:
+        return jsonify({'error': 'Order not found or invalid status'}), 404
+    return jsonify({'success': True, 'order': updated})

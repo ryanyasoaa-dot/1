@@ -106,6 +106,17 @@ class OrderModel:
             return None
         return self.update_status(order_id, new_status)
 
+    def update_status_for_admin(self, order_id, new_status, rider_id=None):
+        """Admin can override any valid order status and optionally assign a rider."""
+        allowed = ('pending', 'processing', 'ready_for_pickup', 'in_transit', 'delivered')
+        if new_status not in allowed:
+            return None
+        payload = {'status': new_status}
+        if rider_id:
+            payload['rider_id'] = rider_id
+        result = self.supabase.table('orders').update(payload).eq('id', order_id).execute()
+        return result.data[0] if result.data else None
+
     def get_ready_for_pickup_orders(self):
         """Orders available for rider pickup"""
         result = self.supabase.table('orders').select(
@@ -142,7 +153,9 @@ class OrderModel:
     
     def get_all(self):
         """Get all orders (admin view)"""
-        result = self.supabase.table('orders').select('*, buyer:users(first_name, last_name, email)').order('created_at', desc=True).execute()
+        result = self.supabase.table('orders').select(
+            '*, buyer:users!orders_buyer_id_fkey(first_name, last_name, email), rider:users!orders_rider_id_fkey(first_name, last_name)'
+        ).order('created_at', desc=True).execute()
         return result.data if result.data else []
 
     # Cart operations
