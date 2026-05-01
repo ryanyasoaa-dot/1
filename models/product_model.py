@@ -13,16 +13,24 @@ class ProductModel:
     def get_by_id(self, product_id):
         """Get product by ID with variants and images"""
         result = self.supabase.table('products').select(
-            '*, seller:users(id, first_name, last_name), product_variants (*), product_images (*)'
-        ).eq('id', product_id).single().execute()
-        return result.data if result.data else None
+            '*, seller:users!products_seller_id_fkey(id, first_name, last_name), product_variants (*), product_images (*)'
+        ).eq('id', product_id).limit(1).execute()
+        if not result.data:
+            return None
+        product = result.data[0]
+        # Normalise image URLs so legacy local paths still resolve
+        for img in product.get('product_images') or []:
+            url = img.get('image_url', '')
+            if url and not url.startswith('http') and not url.startswith('/'):
+                img['image_url'] = '/' + url
+        return product
     
     def get_by_id_and_seller(self, product_id, seller_id):
         """Get product by ID only if owned by seller"""
         result = self.supabase.table('products').select(
             '*, product_variants (*), product_images (*)'
-        ).eq('id', product_id).eq('seller_id', seller_id).single().execute()
-        return result.data if result.data else None
+        ).eq('id', product_id).eq('seller_id', seller_id).limit(1).execute()
+        return result.data[0] if result.data else None
     
     def get_by_seller(self, seller_id):
         """Get all products for a seller"""
@@ -33,19 +41,24 @@ class ProductModel:
         return result.data if result.data else []
     
     def get_all_active(self, category=None):
-        """Get all active products, optionally filtered by category"""
         query = self.supabase.table('products').select(
-            '*, seller:users(first_name, last_name), product_images (*)'
+            '*, seller:users!products_seller_id_fkey(first_name, last_name), product_images (*)'
         ).eq('status', 'active')
         if category:
             query = query.eq('category', category)
         result = query.order('created_at', desc=True).execute()
-        return result.data if result.data else []
+        products = result.data if result.data else []
+        for p in products:
+            for img in p.get('product_images') or []:
+                url = img.get('image_url', '')
+                if url and not url.startswith('http') and not url.startswith('/'):
+                    img['image_url'] = '/' + url
+        return products
 
     def get_all(self, status=None):
         """Get all products for admin, optional status filter"""
         query = self.supabase.table('products').select(
-            '*, seller:users(id, first_name, last_name, email, phone), product_variants (*), product_images (*)'
+            '*, seller:users!products_seller_id_fkey(id, first_name, last_name, email, phone), product_variants (*), product_images (*)'
         )
         if status:
             query = query.eq('status', status)
@@ -63,10 +76,7 @@ class ProductModel:
         return result.data[0] if result.data else None
 
     def update_status(self, product_id, status, reviewed_by=None, reject_reason=None):
-        """Admin update product status"""
         payload = {'status': status}
-        if reviewed_by:
-            payload['reviewed_by'] = reviewed_by
         if status == 'rejected':
             payload['reject_reason'] = reject_reason
         else:

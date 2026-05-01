@@ -1,27 +1,47 @@
 /**
  * api.js — Centralized REST API layer
- * All fetch calls go through here.
- * Flutter: replace fetch() calls with Dart http/dio using same endpoints.
- *
- * Base URL for Flutter: const BASE = 'https://yourdomain.com';
+ * All state-changing requests include X-CSRF-Token automatically.
  */
+
+// ── CSRF helpers ──────────────────────────────────────────────
+function _csrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.content || '';
+}
+
+function _post(url, body) {
+    return fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken() },
+        body: JSON.stringify(body),
+    }).then(r => r.json());
+}
+
+function _put(url, body) {
+    return fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken() },
+        body: JSON.stringify(body),
+    }).then(r => r.json());
+}
+
+function _delete(url) {
+    return fetch(url, {
+        method: 'DELETE',
+        headers: { 'X-CSRF-Token': _csrfToken() },
+    }).then(r => r.json());
+}
+
+function _get(url) {
+    return fetch(url).then(r => r.json());
+}
 
 const API = {
 
     // ── Admin: Applications ───────────────────────────────────
     applications: {
-        getAll: () =>
-            fetch('/admin/api/applications').then(r => r.json()),
-
-        getOne: (id) =>
-            fetch(`/admin/api/applications/${id}`).then(r => r.json()),
-
-        updateStatus: (id, status, notes = '') =>
-            fetch(`/admin/api/applications/${id}/status`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status, notes }),
-            }).then(r => r.json()),
+        getAll:       ()                       => _get('/admin/api/applications'),
+        getOne:       (id)                     => _get(`/admin/api/applications/${encodeURIComponent(id)}`),
+        updateStatus: (id, status, notes = '') => _post(`/admin/api/applications/${encodeURIComponent(id)}/status`, { status, notes }),
     },
 
     // ── Auth ──────────────────────────────────────────────────
@@ -29,107 +49,73 @@ const API = {
         login: (email, password) =>
             fetch('/login', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken() },
                 body: JSON.stringify({ email, password }),
             }).then(async r => ({ ok: r.ok, data: await r.json() })),
 
-        register: (formData) =>
-            fetch('/register', {
+        register: (formData) => {
+            formData.append('csrf_token', _csrfToken());
+            return fetch('/register', {
                 method: 'POST',
+                headers: { 'X-CSRF-Token': _csrfToken() },
                 body: formData,
-            }).then(async r => ({ ok: r.ok, data: await r.json() })),
+            }).then(async r => ({ ok: r.ok, data: await r.json() }));
+        },
     },
 
     // ── Seller ────────────────────────────────────────────────
     seller: {
-        getProducts:  () => fetch('/seller/api/products').then(r => r.json()),
-        getOrders:    () => fetch('/seller/api/orders').then(r => r.json()),
-        updateOrderStatus: (id, status) => fetch(`/seller/api/orders/${id}/status`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status }),
-        }).then(r => r.json()),
-        getEarnings:  () => fetch('/seller/api/earnings').then(r => r.json()),
-        getShipping:  () => fetch('/seller/api/shipping').then(r => r.json()),
-        getReviews:   () => fetch('/seller/api/reviews').then(r => r.json()),
-        getStore:     () => fetch('/seller/api/store').then(r => r.json()),
-        updateStore:  (data) => fetch('/seller/api/store', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        }).then(r => r.json()),
+        getProducts:       ()             => _get('/seller/api/products'),
+        getOrders:         ()             => _get('/seller/api/orders'),
+        updateOrderStatus: (id, status)   => _post(`/seller/api/orders/${encodeURIComponent(id)}/status`, { status }),
+        getEarnings:       ()             => _get('/seller/api/earnings'),
+        getShipping:       ()             => _get('/seller/api/shipping'),
+        getReviews:        ()             => _get('/seller/api/reviews'),
+        getStore:          ()             => _get('/seller/api/store'),
+        updateStore:       (data)         => _post('/seller/api/store', data),
     },
 
     // ── Buyer ─────────────────────────────────────────────────
     buyer: {
-        getCart:       () => fetch('/buyer/api/cart').then(r => r.json()),
-        addToCart:     (payload) => fetch('/buyer/api/cart', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        }).then(r => r.json()),
-        updateCartItem: (id, quantity) => fetch(`/buyer/api/cart/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ quantity }),
-        }).then(r => r.json()),
-        removeCartItem: (id) => fetch(`/buyer/api/cart/${id}`, { method: 'DELETE' }).then(r => r.json()),
-        checkout:      (payload) => fetch('/buyer/api/checkout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        }).then(r => r.json()),
-        getOrders:     () => fetch('/buyer/api/orders').then(r => r.json()),
-        getProfile:    () => fetch('/buyer/api/profile').then(r => r.json()),
-        getWishlist:   () => fetch('/buyer/api/wishlist').then(r => r.json()),
-        getAddresses:  () => fetch('/buyer/api/addresses').then(r => r.json()),
+        getCart:        ()              => _get('/buyer/api/cart'),
+        addToCart:      (payload)       => _post('/buyer/api/cart', payload),
+        updateCartItem: (id, quantity)  => _put(`/buyer/api/cart/${encodeURIComponent(id)}`, { quantity }),
+        removeCartItem: (id)            => _delete(`/buyer/api/cart/${encodeURIComponent(id)}`),
+        checkout:       (payload)       => _post('/buyer/api/checkout', payload),
+        getOrders:      ()              => _get('/buyer/api/orders'),
+        getProfile:     ()              => _get('/buyer/api/profile'),
+        getAddresses:   ()              => _get('/buyer/api/addresses'),
+        createAddress:  (payload)       => _post('/buyer/api/addresses', payload),
+        setDefault:     (id)            => _post(`/buyer/api/addresses/${encodeURIComponent(id)}/default`, {}),
+        deleteAddress:  (id)            => _delete(`/buyer/api/addresses/${encodeURIComponent(id)}`),
+        updateProfile:  (payload)       => _put('/buyer/api/profile', payload),
+        changePassword: (payload)       => _put('/buyer/api/password', payload),
     },
 
     // ── Rider ─────────────────────────────────────────────────
     rider: {
-        getDeliveries: () => fetch('/rider/api/deliveries').then(r => r.json()),
-        acceptDelivery: (id) => fetch(`/rider/api/deliveries/${id}/accept`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-        }).then(r => r.json()),
-        getEarnings:   () => fetch('/rider/api/earnings').then(r => r.json()),
-        updateStatus:  (id, status) => fetch(`/rider/api/deliveries/${id}/status`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status }),
-        }).then(r => r.json()),
+        getDeliveries:  ()              => _get('/rider/api/deliveries'),
+        acceptDelivery: (id)            => _post(`/rider/api/deliveries/${encodeURIComponent(id)}/accept`, {}),
+        getEarnings:    ()              => _get('/rider/api/earnings'),
+        updateStatus:   (id, status)    => _post(`/rider/api/deliveries/${encodeURIComponent(id)}/status`, { status }),
     },
 
     // ── Public (shop) ─────────────────────────────────────────
     shop: {
-        getProducts:   (params = '') => fetch(`/buyer/api/products?${params}`).then(r => r.json()),
-        getCategories: () => fetch('/api/categories').then(r => r.json()),
-        getProduct:    (id) => fetch(`/buyer/api/products/${id}`).then(r => r.json()),
+        getProducts: (params = '') => _get(`/buyer/api/products${params ? '?' + params : ''}`),
+        getProduct:  (id)          => _get(`/buyer/api/products/${encodeURIComponent(id)}`),
     },
 
-    // ── Admin: Order management ──────────────────────────────
+    // ── Admin: Orders ─────────────────────────────────────────
     admin: {
-        getOrders: (status = '') =>
-            fetch(`/admin/api/orders${status ? `?status=${encodeURIComponent(status)}` : ''}`).then(r => r.json()),
-        updateOrderStatus: (id, status, rider_id = '') =>
-            fetch(`/admin/api/orders/${id}/status`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status, rider_id }),
-            }).then(r => r.json()),
+        getOrders:         (status = '') => _get(`/admin/api/orders${status ? '?status=' + encodeURIComponent(status) : ''}`),
+        updateOrderStatus: (id, status, rider_id = '') => _post(`/admin/api/orders/${encodeURIComponent(id)}/status`, { status, rider_id }),
     },
 
-    // ── Admin: Product moderation ─────────────────────────────
+    // ── Admin: Products ───────────────────────────────────────
     adminProducts: {
-        getAll: (status = '') =>
-            fetch(`/admin/api/products${status ? `?status=${encodeURIComponent(status)}` : ''}`).then(r => r.json()),
-        getOne: (id) =>
-            fetch(`/admin/api/products/${id}`).then(r => r.json()),
-        updateStatus: (id, status, reason = '') =>
-            fetch(`/admin/api/products/${id}/status`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status, reason }),
-            }).then(r => r.json()),
+        getAll:       (status = '')              => _get(`/admin/api/products${status ? '?status=' + encodeURIComponent(status) : ''}`),
+        getOne:       (id)                       => _get(`/admin/api/products/${encodeURIComponent(id)}`),
+        updateStatus: (id, status, reason = '')  => _post(`/admin/api/products/${encodeURIComponent(id)}/status`, { status, reason }),
     },
 };

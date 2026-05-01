@@ -33,10 +33,8 @@ def dashboard():
 # Route functions
 
 @buyer_bp.route('/market')
-@buyer_required
 def market():
-    products = product_model.get_all_active()
-    return render_template('buyer/market.html', products=products)
+    return render_template('buyer/market.html')
 
 @buyer_bp.route('/product')
 @buyer_required
@@ -44,45 +42,52 @@ def product():
     return render_template('buyer/product.html')
 
 @buyer_bp.route('/api/products', methods=['GET'])
-@buyer_required
 def api_buyer_products():
-    category = request.args.get('category', '').strip()
-    search = request.args.get('search', '').strip().lower()
-    min_price = request.args.get('min_price', '').strip()
-    max_price = request.args.get('max_price', '').strip()
+    try:
+        category  = request.args.get('category', '').strip()
+        search    = request.args.get('search', '').strip().lower()
+        min_price = request.args.get('min_price', '').strip()
+        max_price = request.args.get('max_price', '').strip()
+        sort      = request.args.get('sort', '').strip()
 
-    products = product_model.get_all_active(category=category or None)
+        products = product_model.get_all_active(category=category or None)
 
-    if search:
-        products = [p for p in products if search in (p.get('name', '') + ' ' + (p.get('description') or '')).lower()]
-    if min_price:
-        try:
-            min_val = float(min_price)
-            products = [p for p in products if float(p.get('price', 0) or 0) >= min_val]
-        except ValueError:
-            pass
-    if max_price:
-        try:
-            max_val = float(max_price)
-            products = [p for p in products if float(p.get('price', 0) or 0) <= max_val]
-        except ValueError:
-            pass
+        if search:
+            products = [p for p in products if search in (p.get('name', '') + ' ' + (p.get('description') or '')).lower()]
+        if min_price:
+            try:
+                products = [p for p in products if float(p.get('price', 0) or 0) >= float(min_price)]
+            except ValueError:
+                pass
+        if max_price:
+            try:
+                products = [p for p in products if float(p.get('price', 0) or 0) <= float(max_price)]
+            except ValueError:
+                pass
+        if sort == 'price_asc':
+            products.sort(key=lambda p: float(p.get('price', 0) or 0))
+        elif sort == 'price_desc':
+            products.sort(key=lambda p: float(p.get('price', 0) or 0), reverse=True)
 
-    for p in products:
-        images = p.get('product_images') or []
-        primary = next((img for img in images if img.get('is_primary')), images[0] if images else None)
-        p['image'] = primary.get('image_url') if primary else None
-        p['stock'] = p.get('total_stock', 0)
+        for p in products:
+            images  = p.get('product_images') or []
+            primary = next((img for img in images if img.get('is_primary')), images[0] if images else None)
+            p['image'] = primary.get('image_url') if primary else None
+            p['stock'] = p.get('total_stock', 0)
 
-    return jsonify(products)
+        return jsonify(products)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @buyer_bp.route('/api/products/<product_id>', methods=['GET'])
-@buyer_required
 def api_buyer_product_detail(product_id):
-    product = product_model.get_by_id(product_id)
-    if not product or product.get('status') != 'active':
-        return jsonify({'error': 'Product not found'}), 404
-    return jsonify(product)
+    try:
+        product = product_model.get_by_id(product_id)
+        if not product or product.get('status') != 'active':
+            return jsonify({'error': 'Product not found'}), 404
+        return jsonify(product)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @buyer_bp.route('/cart')
 @buyer_required
@@ -104,6 +109,11 @@ def orders():
     buyer_id = session['user']['id']
     orders = order_model.get_by_buyer(buyer_id)
     return render_template('buyer/orders.html', orders=orders)
+
+@buyer_bp.route('/order_summary')
+@buyer_required
+def order_summary():
+    return render_template('buyer/order_summary.html')
 
 @buyer_bp.route('/api/cart', methods=['GET', 'POST'])
 @buyer_required
@@ -356,64 +366,57 @@ def api_set_default_address(address_id):
 def api_update_profile():
     user_id = session['user']['id']
     data = request.get_json() or {}
-    
-    # Prepare update data
+    from security import sanitise
+
     update_data = {}
     if 'full_name' in data:
-        # Split full name into first and last name (simple approach)
-        name_parts = data['full_name'].strip().split(' ', 1)
+        full_name   = sanitise(data['full_name'], 100)
+        name_parts  = full_name.strip().split(' ', 1)
         update_data['first_name'] = name_parts[0]
-        update_data['last_name'] = name_parts[1] if len(name_parts) > 1 else ''
+        update_data['last_name']  = name_parts[1] if len(name_parts) > 1 else ''
     if 'phone' in data:
-        update_data['phone'] = data['phone']
-    
+        update_data['phone'] = sanitise(data['phone'], 20)
+
     if not update_data:
         return jsonify({'error': 'No fields to update'}), 400
-    
+
     updated_user = user_model.update(user_id, update_data)
     if updated_user:
-        # Update session user data
         session['user'].update({
             'first_name': updated_user.get('first_name'),
-            'last_name': updated_user.get('last_name'),
-            'phone': updated_user.get('phone')
+            'last_name':  updated_user.get('last_name'),
+            'phone':      updated_user.get('phone')
         })
-        # Reconstruct name for display
         session['user']['name'] = f"{updated_user.get('first_name', '')} {updated_user.get('last_name', '')}".strip()
         return jsonify({'success': True, 'user': updated_user})
-    else:
-        return jsonify({'error': 'Failed to update profile'}), 500
+    return jsonify({'error': 'Failed to update profile'}), 500
 
 @buyer_bp.route('/api/password', methods=['PUT'])
 @buyer_required
 def api_change_password():
     user_id = session['user']['id']
     data = request.get_json() or {}
-    
-    current_password = data.get('current_password')
-    new_password = data.get('new_password')
-    
+    from security import verify_password, hash_password
+
+    current_password = data.get('current_password', '')
+    new_password     = data.get('new_password', '')
+
     if not current_password or not new_password:
         return jsonify({'error': 'Current password and new password are required'}), 400
-    
     if len(new_password) < 8:
         return jsonify({'error': 'New password must be at least 8 characters'}), 400
-    
-    # Get current user to verify password
+
     user = user_model.get_by_id(user_id)
     if not user:
         return jsonify({'error': 'User not found'}), 404
-    
-    # Verify current password (plaintext comparison - in production use proper hashing)
-    if user['password'] != current_password:
+
+    if not verify_password(current_password, user['password']):
         return jsonify({'error': 'Current password is incorrect'}), 400
-    
-    # Update password
-    updated_user = user_model.update(user_id, {'password': new_password})
+
+    updated_user = user_model.update(user_id, {'password': hash_password(new_password)})
     if updated_user:
         return jsonify({'success': True, 'message': 'Password changed successfully'})
-    else:
-        return jsonify({'error': 'Failed to change password'}), 500
+    return jsonify({'error': 'Failed to change password'}), 500
 
 @buyer_bp.route('/profile')
 @buyer_required

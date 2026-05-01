@@ -143,20 +143,16 @@
 }
 
 .custom-marker-icon {
+    width: 20px;
+    height: 20px;
     background: #FF2BAC;
     border: 3px solid #fff;
     border-radius: 50% 50% 50% 0;
-    box-shadow: 0 2px 8px rgba(255, 43, 172, 0.3);
-    width: 24px;
-    height: 24px;
-    display: block;
+    box-shadow: 0 2px 8px rgba(255,43,172,0.4);
     transform: rotate(-45deg);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.custom-marker-icon:hover {
-    transform: rotate(-45deg) scale(1.1);
-    box-shadow: 0 4px 12px rgba(255, 43, 172, 0.4);
+    position: relative;
+    top: -4px;
+    left: 4px;
 }
 
 .pin-status {

@@ -97,59 +97,117 @@ async function loadMarket(params = {}) {
     const grid = document.getElementById('productGrid');
     if (!grid) return;
 
-    grid.innerHTML = `<div class="col-12 text-center py-5"><div class="spinner-border" style="color:var(--pink)"></div></div>`;
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 0"><div class="home-spinner"></div></div>`;
 
-    const query = new URLSearchParams(params).toString();
-    const data  = await API.shop.getProducts(query).catch(() => []);
+    const query = Object.entries(params)
+        .filter(([, v]) => v !== '' && v != null)
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+        .join('&');
 
-    if (!data.length) {
+    const data = await fetch(`/buyer/api/products${query ? '?' + query : ''}`)
+        .then(r => {
+            if (!r.ok) return r.json().then(e => { throw new Error(JSON.stringify(e)); });
+            return r.json();
+        })
+        .catch(err => {
+            console.error('loadMarket error:', err);
+            return null;
+        });
+
+    if (!data || !Array.isArray(data) || !data.length) {
         grid.innerHTML = `
-            <div class="col-12">
-                <div class="empty-state">
-                    <div class="empty-icon">🔍</div>
-                    <h5>No products found</h5>
-                    <p>Try adjusting your filters or search term.</p>
+            <div style="grid-column:1/-1;text-align:center;padding:60px 20px">
+                <div style="font-size:48px;margin-bottom:16px">${!data ? '⚠️' : '🔍'}</div>
+                <div style="font-size:16px;font-weight:600;color:var(--color-text-dark);margin-bottom:8px">
+                    ${!data ? 'Failed to load products' : 'No products found'}
                 </div>
+                <p style="font-size:13px;color:#999">
+                    ${!data ? 'Check the browser console for details.' : 'Try adjusting your filters.'}
+                </p>
             </div>`;
         return;
     }
 
-    grid.innerHTML = data.map(p => renderProductCard(p)).join('');
+    grid.innerHTML = '';
+    data.forEach(p => grid.appendChild(buildMarketCard(p)));
 }
 
-function renderProductCard(p) {
+function buildMarketCard(p) {
+    const price    = parseFloat(p.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
+    const imgSrc   = p.image ? (p.image.startsWith('/') ? p.image : '/' + p.image) : '';
+    const imgEl    = imgSrc
+        ? `<img src="${imgSrc}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover">`
+        : `<span style="font-size:48px">🛍️</span>`;
+    const seller   = p.seller ? `${p.seller.first_name || ''} ${p.seller.last_name || ''}`.trim() : '';
+    const stock    = p.total_stock ?? 0;
     const wishlisted = isWishlisted(p.id);
-    return `
-    <div class="col-6 col-md-4 col-lg-3 mb-3">
-        <div class="product-card" onclick="window.location='/buyer/product?id=${p.id}'">
-            <div class="product-img">
-                ${p.image ? `<img src="${p.image}" alt="${p.name}">` : p.emoji || '🛍️'}
-                ${p.discount ? `<span class="product-badge">-${p.discount}%</span>` : ''}
-                <button class="product-wishlist ${wishlisted ? 'active' : ''}"
-                    onclick="event.stopPropagation(); handleWishlist(this, ${JSON.stringify(p).replace(/"/g,'&quot;')})"
-                >❤️</button>
-            </div>
-            <div class="product-body">
-                <div class="product-name">${p.name}</div>
-                <div>
-                    <span class="product-price">${formatCurrency(p.price)}</span>
-                    ${p.original_price ? `<span class="product-original">${formatCurrency(p.original_price)}</span>` : ''}
-                </div>
-                <div class="product-rating">
-                    <span class="stars">${renderStars(p.rating || 0)}</span>
-                    <span>(${p.reviews || 0})</span>
-                </div>
-                <button class="btn-add-cart" onclick="event.stopPropagation(); addToCart({id:'${p.id}',name:'${p.name}'})">
-                    Add to Cart
-                </button>
-            </div>
+
+    const card = document.createElement('div');
+    card.className = 'product-card';
+    card.style.cursor = 'pointer';
+    card.innerHTML = `
+        <div class="product-image-wrapper" onclick="window.location='/buyer/product?id=${p.id}'">
+            ${imgEl}
+            <button class="product-wishlist ${wishlisted ? 'active' : ''}"
+                onclick="event.stopPropagation(); handleWishlist(this, ${JSON.stringify(p).replace(/"/g, '&quot;')})"
+                title="Wishlist">❤️</button>
         </div>
-    </div>`;
+        <h3 class="product-name" onclick="window.location='/buyer/product?id=${p.id}'" style="cursor:pointer">${p.name}</h3>
+        ${seller ? `<div style="font-size:11px;color:#999;margin-bottom:4px">by ${seller}</div>` : ''}
+        <div class="product-price">
+            <span class="current">₱${price}</span>
+        </div>
+        <div style="font-size:11px;color:#999;margin-bottom:10px">
+            ${stock > 0 ? `${stock} in stock` : '<span style="color:#e74c3c">Out of stock</span>'}
+        </div>
+        <button class="quick-add-btn"
+            onclick="addToCart({id:'${p.id}',name:'${p.name}'})"
+            ${stock <= 0 ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>
+            ${stock > 0 ? 'Add to Cart' : 'Out of Stock'}
+        </button>`;
+    return card;
 }
 
 function handleWishlist(btn, product) {
     const added = toggleWishlist(product);
     btn.classList.toggle('active', added);
+}
+
+// ── Product card rendering ────────────────────────────────────
+function renderProductCard(p) {
+    const price    = parseFloat(p.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
+    const imgSrc   = p.image ? (p.image.startsWith('/') ? p.image : '/' + p.image) : '';
+    const imgEl    = imgSrc
+        ? `<img src="${imgSrc}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover">`
+        : `<span style="font-size:48px">🛍️</span>`;
+    const seller   = p.seller ? `${p.seller.first_name || ''} ${p.seller.last_name || ''}`.trim() : '';
+    const stock    = p.total_stock ?? 0;
+    const wishlisted = isWishlisted(p.id);
+
+    return `
+        <div class="col-md-4 col-sm-6 mb-4">
+            <div class="product-card">
+                <div class="product-image-wrapper" onclick="window.location='/buyer/product?id=${p.id}'">
+                    ${imgEl}
+                    <button class="product-wishlist ${wishlisted ? 'active' : ''}"
+                        onclick="event.stopPropagation(); handleWishlist(this, ${JSON.stringify(p).replace(/"/g, '&quot;')})"
+                        title="Wishlist">❤️</button>
+                </div>
+                <h3 class="product-name" onclick="window.location='/buyer/product?id=${p.id}'" style="cursor:pointer">${p.name}</h3>
+                ${seller ? `<div style="font-size:11px;color:#999;margin-bottom:4px">by ${seller}</div>` : ''}
+                <div class="product-price">
+                    <span class="current">₱${price}</span>
+                </div>
+                <div style="font-size:11px;color:#999;margin-bottom:10px">
+                    ${stock > 0 ? `${stock} in stock` : '<span style="color:#e74c3c">Out of stock</span>'}
+                </div>
+                <button class="quick-add-btn"
+                    onclick="addToCart({id:'${p.id}',name:'${p.name}'})"
+                    ${stock <= 0 ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>
+                    ${stock > 0 ? 'Add to Cart' : 'Out of Stock'}
+                </button>
+            </div>
+        </div>`;
 }
 
 // ── Product detail page ───────────────────────────────────────
@@ -191,17 +249,21 @@ async function loadProduct() {
     const primary = images.find(i => i.is_primary) || images[0];
     if (mainImageEl) {
         if (primary && primary.image_url) {
-            mainImageEl.innerHTML = `<img src="${primary.image_url}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover">`;
+            const imageUrl = primary.image_url.startsWith('/') ? primary.image_url : '/' + primary.image_url;
+            mainImageEl.innerHTML = `<img src="${imageUrl}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover">`;
         } else {
             mainImageEl.textContent = p.emoji || '🛍️';
         }
     }
     if (thumbsEl) {
-        thumbsEl.innerHTML = images.map(img => `
-            <button type="button" style="border:1px solid #eee;background:#fff;padding:0;border-radius:6px;overflow:hidden;height:64px" onclick="setMainProductImage('${img.image_url.replace(/'/g, "\\'")}')">
-                <img src="${img.image_url}" alt="thumbnail" style="width:100%;height:100%;object-fit:cover">
+        thumbsEl.innerHTML = images.map(img => {
+            const imageUrl = img.image_url.startsWith('/') ? img.image_url : '/' + img.image_url;
+            return `
+            <button type="button" style="border:1px solid #eee;background:#fff;padding:0;border-radius:6px;overflow:hidden;height:64px" onclick="setMainProductImage('${imageUrl.replace(/'/g, "\\'")}')">
+                <img src="${imageUrl}" alt="thumbnail" style="width:100%;height:100%;object-fit:cover">
             </button>
-        `).join('');
+        `;
+        }).join('');
     }
 
     const addBtn = document.getElementById('addToCartBtn');
@@ -211,46 +273,51 @@ async function loadProduct() {
 function setMainProductImage(url) {
     const mainImageEl = document.getElementById('productMainImage');
     if (!mainImageEl) return;
-    mainImageEl.innerHTML = `<img src="${url}" alt="product image" style="width:100%;height:100%;object-fit:cover">`;
+    const imageUrl = url.startsWith('/') ? url : '/' + url;
+    mainImageEl.innerHTML = `<img src="${imageUrl}" alt="product image" style="width:100%;height:100%;object-fit:cover">`;
 }
 
 // ── Cart page ─────────────────────────────────────────────────
 function loadCart() {
+    // The new cart.html has its own loadCartPage() — this fallback
+    // handles any legacy page that still uses #cartItems.
     const container = document.getElementById('cartItems');
     const emptyEl   = document.getElementById('cartEmpty');
     const summaryEl = document.getElementById('cartSummary');
     if (!container) return;
 
     API.buyer.getCart().then(cart => {
-
         if (!cart.length) {
             container.innerHTML = '';
-            if (emptyEl)   emptyEl.style.display   = 'block';
-            if (summaryEl) summaryEl.style.display  = 'none';
+            if (emptyEl)   emptyEl.style.display  = 'block';
+            if (summaryEl) summaryEl.style.display = 'none';
             return;
         }
+        if (emptyEl)   emptyEl.style.display  = 'none';
+        if (summaryEl) summaryEl.style.display = 'block';
 
-        if (emptyEl)   emptyEl.style.display   = 'none';
-        if (summaryEl) summaryEl.style.display  = 'block';
-
-        container.innerHTML = cart.map(item => `
-        <div class="cart-item">
-            <div class="cart-item-img">${item.image ? `<img src="${item.image}">` : '🛍️'}</div>
-            <div class="flex-grow-1">
-                <div style="font-size:14px;font-weight:600;margin-bottom:4px">${item.name || item.product?.name || 'Product'}</div>
-                <div style="font-size:15px;font-weight:700;color:var(--pink);margin-bottom:8px">${formatCurrency(item.price_snapshot)}</div>
-                <div class="qty-control">
-                    <button class="qty-btn" onclick="changeQty('${item.id}', ${Number(item.quantity) - 1})">−</button>
-                    <span class="qty-value">${item.quantity}</span>
-                    <button class="qty-btn" onclick="changeQty('${item.id}', ${Number(item.quantity) + 1})">+</button>
+        container.innerHTML = cart.map(item => {
+            const imgSrc = item.image
+                ? (item.image.startsWith('/') ? item.image : '/' + item.image)
+                : null;
+            return `
+            <div class="cart-item">
+                <div class="cart-item-img">${imgSrc ? `<img src="${imgSrc}" onerror="this.parentElement.innerHTML='🛍️'">` : '🛍️'}</div>
+                <div class="flex-grow-1">
+                    <div style="font-size:14px;font-weight:600;margin-bottom:4px">${item.name || item.product?.name || 'Product'}</div>
+                    <div style="font-size:15px;font-weight:700;color:var(--pink);margin-bottom:8px">${formatCurrency(item.price_snapshot)}</div>
+                    <div class="qty-control">
+                        <button class="qty-btn" onclick="changeQty('${item.id}', ${Number(item.quantity) - 1})">−</button>
+                        <span class="qty-value">${item.quantity}</span>
+                        <button class="qty-btn" onclick="changeQty('${item.id}', ${Number(item.quantity) + 1})">+</button>
+                    </div>
                 </div>
-            </div>
-            <div style="text-align:right">
-                <div style="font-size:15px;font-weight:700;margin-bottom:8px">${formatCurrency(item.subtotal)}</div>
-                <button class="btn btn-sm btn-outline-danger" onclick="removeFromCart('${item.id}'); loadCart()">🗑️</button>
-            </div>
-        </div>
-    `).join('');
+                <div style="text-align:right">
+                    <div style="font-size:15px;font-weight:700;margin-bottom:8px">${formatCurrency(item.subtotal)}</div>
+                    <button class="btn btn-sm btn-outline-danger" onclick="removeFromCart('${item.id}'); loadCart()">🗑️</button>
+                </div>
+            </div>`;
+        }).join('');
 
         updateCartSummary(cart.map(i => ({ price: Number(i.price_snapshot || 0), qty: Number(i.quantity || 0) })));
     }).catch(() => {
@@ -539,6 +606,11 @@ async function setDefault(id) {
     loadAddressBook();
 }
 
+async function editAddress(id) {
+    // For now, just show a message. You can implement full editing later
+    showToast('Edit address feature coming soon!', true);
+}
+
 // ── Settings page ─────────────────────────────────────────────
 function initSettings() {
     const links = document.querySelectorAll('.settings-nav .nav-link');
@@ -585,9 +657,9 @@ async function changePassword(e) {
 // ── Init on page load ─────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     updateCartBadge();
-    if (document.getElementById('productGrid'))    loadMarket();
-    if (document.getElementById('productName'))    loadProduct();
-    if (document.getElementById('cartItems'))      loadCart();
+    // Only call loadProduct if we're not on the dedicated product detail page
+    if (document.getElementById('productName') && !document.getElementById('productMainImage'))    loadProduct();
+    if (document.getElementById('cartItems'))      loadCart();  // legacy cart pages only
     if (document.getElementById('checkoutItems'))  loadCheckout();
     if (document.getElementById('orderId')) {
         loadOrderSummary();
@@ -600,86 +672,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('wishlistGrid'))   loadWishlist();
     if (document.getElementById('addressList'))    { loadAddressBook(); initAddressMap(); }
     if (document.querySelector('.settings-nav'))   initSettings();
-    // Initialize profile picture preview if on settings page
-    if (document.getElementById('profilePreview')) {
-        initProfilePicturePreview();
-    }
+    if (document.getElementById('profilePreview')) initProfilePicturePreview();
 });
 
-// ── Profile Picture Functions ─────────────────────────────────────
+// ── Profile Picture Functions ─────────────────────────────────
 function initProfilePicturePreview() {
-    const preview = document.getElementById('profilePreview');
-    const input = document.getElementById('profilePictureInput');
+    const preview   = document.getElementById('profilePreview');
+    const input     = document.getElementById('profilePictureInput');
     const changeBtn = document.getElementById('changePicBtn');
-    
-    // Set initial preview from session or default
-    const user = {{ session.user|tojson }};
-    if (user && user.profile_picture) {
-        preview.src = `/${user.profile_picture}`;
-    } else {
-        preview.src = '/static/uploads/default-avatar.png'; // You'll need to create this
-    }
-    
-    // Handle change button click
-    if (changeBtn) {
-        changeBtn.addEventListener('click', () => {
-            input.click();
-        });
-    }
-    
-    // Handle file selection
-    if (input) {
-        input.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    preview.src = event.target.result;
-                }
-                reader.readAsDataURL(file);
-            }
-        });
-    }
-}
-
-async function saveProfile(e) {
-    e.preventDefault();
-    const formData = new FormData();
-    
-    // Get form values
-    const fullName = document.getElementById('profileName')?.value.trim();
-    const phone = document.getElementById('profilePhone')?.value.trim();
-    const profilePictureInput = document.getElementById('profilePictureInput');
-    
-    // Add text fields
-    if (fullName) {
-        formData.append('full_name', fullName);
-    }
-    if (phone) {
-        formData.append('phone', phone);
-    }
-    
-    // Add profile picture if selected
-    if (profilePictureInput && profilePictureInput.files[0]) {
-        formData.append('profile_picture', profilePictureInput.files[0]);
-    }
-    
-    try {
-        const res = await fetch('/buyer/api/profile', {
-            method: 'PUT',
-            body: formData
-        }).then(r => r.json()).catch(() => ({ error: 'Network error.' }));
-        
-        showToast(res.success ? 'Profile updated!' : (res.error || 'Failed.'), !res.success);
-        
-        // Update preview if picture was uploaded successfully
-        if (res.success && res.user && res.user.profile_picture) {
-            document.getElementById('profilePreview').src = `/${res.user.profile_picture}`;
-            // Update session data
-            const user = {{ session.user|tojson }};
-            user.profile_picture = res.user.profile_picture;
+    const picUrl    = document.body.dataset.profilePicture;
+    if (preview) preview.src = picUrl ? '/' + picUrl : '/static/uploads/default-avatar.png';
+    changeBtn?.addEventListener('click', () => input?.click());
+    input?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file && preview) {
+            const reader = new FileReader();
+            reader.onload = (ev) => { preview.src = ev.target.result; };
+            reader.readAsDataURL(file);
         }
-    } catch (error) {
-        showToast('Network error.', true);
-    }
+    });
 }

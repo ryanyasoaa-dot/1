@@ -88,23 +88,46 @@ class ProductService:
             
             product_id = product['id']
             
-            # Create variants
+            # Create variants and their images
             for v in variants:
-                self.product_model.create_variant({
-                    'product_id': product_id,
+                # SKU encodes the hex color so the frontend resolveColor() can read it
+                hex_val = v.get('hex', '').strip()
+                sku = f"{product_id[:8]}-{v['variant_type'][0].upper()}-{v['value']}"
+                if hex_val:
+                    sku += f"-{hex_val}"
+                created_variant = self.product_model.create_variant({
+                    'product_id':   product_id,
                     'variant_type': v['variant_type'],
-                    'value': v['value'],
-                    'stock': v['stock'],
-                    'sku': f"{product_id[:8]}-{v['variant_type'][0].upper()}-{v['value']}"
+                    'value':        v['value'],
+                    'stock':        v['stock'],
+                    'sku':          sku
                 })
-            
-            # Create images
+                if not created_variant:
+                    # Variant creation failed — log and skip image save
+                    print(f"[WARN] Failed to create variant {v['value']} for product {product_id}")
+                    continue
+                # Save per-variant image
+                variant_img = files.get(f"variant_image_{v['index']}")
+                if variant_img and variant_img.filename:
+                    ext = variant_img.filename.rsplit('.', 1)[-1].lower()
+                    if ext in {'png', 'jpg', 'jpeg', 'webp', 'gif'}:
+                        path = self.file_service.save_file(variant_img, f'products/{seller_id}')
+                        if path:
+                            self.product_model.create_image({
+                                'product_id':    product_id,
+                                'image_url':     path,
+                                'is_primary':    False,
+                                'variant_id':    created_variant['id'],
+                                'display_order': v['index']
+                            })
+
+            # Create general images
             for idx, path in enumerate(saved_image_paths):
                 self.product_model.create_image({
-                    'product_id': product_id,
-                    'image_url': path,
-                    'is_primary': (idx == 0),
-                    'variant_id': None,
+                    'product_id':    product_id,
+                    'image_url':     path,
+                    'is_primary':    (idx == 0),
+                    'variant_id':    None,
                     'display_order': idx
                 })
             
@@ -194,25 +217,32 @@ class ProductService:
         variants = []
         i = 0
         while True:
-            v_type = form_data.get(f'variants[{i}][type]')
+            v_type  = form_data.get(f'variants[{i}][type]')
             v_value = form_data.get(f'variants[{i}][value]', '').strip()
+            v_hex   = form_data.get(f'variants[{i}][hex]', '').strip()
+            v_price = form_data.get(f'variants[{i}][price]', '').strip()
             v_stock = form_data.get(f'variants[{i}][stock]', '0').strip()
-            
+
             if not v_type or not v_value:
                 break
-            
+
             try:
-                v_stock_int = int(v_stock)
-                if v_stock_int < 0:
-                    v_stock_int = 0
+                v_stock_int = max(0, int(v_stock))
             except ValueError:
                 v_stock_int = 0
-            
+
+            try:
+                v_price_val = float(v_price) if v_price else None
+            except ValueError:
+                v_price_val = None
+
             variants.append({
                 'variant_type': v_type,
-                'value': v_value,
-                'stock': v_stock_int
+                'value':        v_value,
+                'hex':          v_hex,
+                'price':        v_price_val,
+                'stock':        v_stock_int,
+                'index':        i
             })
             i += 1
-        
         return variants

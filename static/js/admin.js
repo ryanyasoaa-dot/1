@@ -476,12 +476,66 @@ async function openProductModal(productId) {
             : 'No variants';
     }
 
-    const imagesEl = document.getElementById('product-modal-images');
-    if (imagesEl) {
-        const images = p.product_images || [];
-        imagesEl.innerHTML = images.length
-            ? images.map(img => `<img src="${img.image_url}" alt="product image" style="width:100%;height:90px;object-fit:cover;border-radius:6px;border:1px solid #eee">`).join('')
-            : '<span style="font-size:12px;color:#999">No images</span>';
+    // Organize images: separate general images from variant-specific images
+    const images = p.product_images || [];
+    const generalImages = images.filter(img => !img.variant_id);
+    const variantImages = images.filter(img => img.variant_id);
+    
+    // Create a map of variant IDs to variant details for lookup
+    const variantMap = {};
+    (p.product_variants || []).forEach(v => {
+        variantMap[v.id] = v;
+    });
+
+    // Display general product images
+    const generalImagesEl = document.getElementById('product-modal-general-images');
+    const generalImagesEmptyEl = document.getElementById('product-modal-general-images-empty');
+    if (generalImagesEl) {
+        if (generalImages.length > 0) {
+            generalImagesEl.innerHTML = generalImages
+                .map(img => `<img src="${img.image_url.startsWith('/') ? img.image_url : '/' + img.image_url}" alt="product image" title="General product image" style="width:100%;height:90px;object-fit:cover;border-radius:6px;border:2px solid #27ae60;cursor:pointer" onclick="this.style.borderColor=this.style.borderColor==='rgb(39, 174, 96)'?'#eee':'#27ae60'">`)
+                .join('');
+            if (generalImagesEmptyEl) generalImagesEmptyEl.style.display = 'none';
+        } else {
+            generalImagesEl.innerHTML = '';
+            if (generalImagesEmptyEl) generalImagesEmptyEl.style.display = 'block';
+        }
+    }
+
+    // Display variant-specific images
+    const variantImagesEl = document.getElementById('product-modal-variant-images');
+    const variantImagesEmptyEl = document.getElementById('product-modal-variant-images-empty');
+    if (variantImagesEl) {
+        if (variantImages.length > 0) {
+            const variantImagesByVariantId = {};
+            variantImages.forEach(img => {
+                if (!variantImagesByVariantId[img.variant_id]) {
+                    variantImagesByVariantId[img.variant_id] = [];
+                }
+                variantImagesByVariantId[img.variant_id].push(img);
+            });
+            
+            variantImagesEl.innerHTML = Object.entries(variantImagesByVariantId)
+                .map(([variantId, imgs]) => {
+                    const variant = variantMap[variantId];
+                    const variantLabel = variant 
+                        ? `${variant.variant_type}: ${variant.value}`
+                        : `Variant: ${variantId}`;
+                    return `
+                        <div style="margin-bottom:16px">
+                            <div style="font-size:12px;font-weight:600;color:#333;margin-bottom:6px">🏷️ ${variantLabel}</div>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(90px, 1fr));gap:8px">
+                                ${imgs.map(img => `<img src="${img.image_url.startsWith('/') ? img.image_url : '/' + img.image_url}" alt="variant image" title="Variant: ${variantLabel}" style="width:100%;height:90px;object-fit:cover;border-radius:6px;border:2px solid #3498db;cursor:pointer" onclick="this.style.borderColor=this.style.borderColor==='rgb(52, 152, 219)'?'#eee':'#3498db'">`).join('')}
+                            </div>
+                        </div>
+                    `;
+                })
+                .join('');
+            if (variantImagesEmptyEl) variantImagesEmptyEl.style.display = 'none';
+        } else {
+            variantImagesEl.innerHTML = '';
+            if (variantImagesEmptyEl) variantImagesEmptyEl.style.display = 'block';
+        }
     }
 
     const actions = document.getElementById('product-modal-actions');

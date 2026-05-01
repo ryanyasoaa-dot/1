@@ -834,3 +834,49 @@ a {
         transform: translateY(0);
     }
 }
+
+/* ── Navbar search ─────────────────────────────────────────── */
+.navbar-search {
+    display: flex;
+    align-items: center;
+    background: var(--color-gray-light);
+    border: 1.5px solid var(--color-border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    gap: 6px;
+    transition: var(--transition-default);
+}
+
+.navbar-search:focus-within {
+    border-color: var(--color-primary-mid);
+    box-shadow: 0 0 0 3px rgba(255,107,206,0.1);
+}
+
+.navbar-search input {
+    border: none;
+    background: none;
+    outline: none;
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--color-text-dark);
+    width: 160px;
+}
+
+@media (max-width: 768px) {
+    .navbar-search { display: none; }
+}
+
+/* ── Loading spinner ───────────────────────────────────────── */
+.home-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--color-border);
+    border-top-color: var(--color-primary-light);
+    border-radius: 50%;
+    animation: homeSpin 0.8s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes homeSpin {
+    to { transform: rotate(360deg); }
+}

@@ -1,23 +1,26 @@
-from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify, flash
+from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify
 from models.user_model import UserModel
 from services.auth_service import AuthService
 from services.file_upload_service import FileUploadService
+from security import rate_limit, generate_csrf_token
 
 auth_bp = Blueprint('auth', __name__)
 auth_service = AuthService()
 file_service = FileUploadService()
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
+@rate_limit(max_calls=10, window_seconds=300)
 def register():
     if request.method == 'POST':
         return _handle_registration()
-    return render_template('auth/register.html')
+    return render_template('auth/register.html', csrf_token=generate_csrf_token())
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
+@rate_limit(max_calls=10, window_seconds=60)
 def login():
     if request.method == 'POST':
         return _handle_login()
-    return render_template('auth/login.html')
+    return render_template('auth/login.html', csrf_token=generate_csrf_token())
 
 @auth_bp.route('/logout')
 def logout():

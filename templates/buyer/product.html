@@ -4,96 +4,553 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Luxe — Product</title>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
+    <style>
+        /* ── Product page overrides ── */
+        body { background: #f8f9fa; }
+
+        .pd-navbar { background:#fff; border-bottom:1px solid #e8e8f0; padding:12px 0; position:sticky; top:0; z-index:1000; box-shadow:0 2px 8px rgba(0,0,0,.04); }
+        .pd-brand  { font-family:'Playfair Display',serif; font-size:24px; font-weight:700; background:linear-gradient(135deg,#FF2BAC,#FF9ED6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; text-decoration:none; }
+        .pd-nav-icon { font-size:20px; text-decoration:none; color:#1a1a3e; position:relative; padding:6px; }
+        .pd-nav-icon:hover { color:#FF2BAC; }
+        .pd-cart-badge { position:absolute; top:0; right:0; background:#FF2BAC; color:#fff; font-size:10px; font-weight:700; width:16px; height:16px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+
+        /* ── Carousel ── */
+        .pd-carousel-wrap { background:#fff; border-radius:16px; overflow:hidden; border:1px solid #e8e8f0; }
+        .pd-carousel .carousel-item { aspect-ratio:1; background:#f8f9fa; display:flex; align-items:center; justify-content:center; }
+        .pd-carousel .carousel-item img { width:100%; height:100%; object-fit:cover; }
+        .pd-carousel .carousel-item .placeholder-icon { font-size:80px; }
+        .pd-carousel .carousel-control-prev,
+        .pd-carousel .carousel-control-next { width:40px; height:40px; background:rgba(255,255,255,.9); border-radius:50%; top:50%; transform:translateY(-50%); margin:0 8px; box-shadow:0 2px 8px rgba(0,0,0,.15); }
+        .pd-carousel .carousel-control-prev-icon,
+        .pd-carousel .carousel-control-next-icon { filter:invert(1) sepia(1) saturate(5) hue-rotate(290deg); width:16px; height:16px; }
+
+        /* ── Thumbnails ── */
+        .pd-thumb-nav { display:flex; align-items:center; gap:6px; margin-top:10px; }
+        .pd-thumb-arrow {
+            width:28px; height:64px; border:1.5px solid #e8e8f0; background:#fff;
+            border-radius:8px; cursor:pointer; font-size:14px; color:#1a1a3e;
+            display:flex; align-items:center; justify-content:center;
+            flex-shrink:0; transition:all .2s;
+        }
+        .pd-thumb-arrow:hover { border-color:#FF2BAC; color:#FF2BAC; }
+        .pd-thumb-arrow:disabled { opacity:.3; cursor:not-allowed; }
+        .pd-thumb-viewport {
+            flex:1; overflow:hidden; position:relative;
+        }
+        .pd-thumb-track {
+            display:flex; gap:8px;
+            transition:transform .3s ease;
+        }
+        .pd-thumb {
+            width:64px; height:64px; border-radius:8px; overflow:hidden;
+            border:2px solid #e8e8f0; cursor:pointer; flex-shrink:0;
+            transition:border-color .2s; background:#f8f9fa;
+        }
+        .pd-thumb.active { border-color:#FF2BAC; }
+        .pd-thumb img { width:100%; height:100%; object-fit:cover; }
+
+        /* ── Info panel ── */
+        .pd-info { background:#fff; border-radius:16px; padding:28px; border:1px solid #e8e8f0; height:fit-content; }
+        .pd-category { font-size:12px; font-weight:700; color:#FF2BAC; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+        .pd-name { font-family:'Playfair Display',serif; font-size:26px; font-weight:700; color:#1a1a3e; line-height:1.3; margin-bottom:6px; }
+        .pd-seller { font-size:13px; color:#6c757d; margin-bottom:16px; }
+        .pd-price { font-size:32px; font-weight:700; color:#FF2BAC; margin-bottom:8px; }
+        .pd-stock { font-size:13px; margin-bottom:20px; }
+        .pd-label { font-size:12px; font-weight:700; color:#1a1a3e; text-transform:uppercase; letter-spacing:.4px; margin-bottom:10px; }
+
+        /* ── Color swatches ── */
+        .pd-swatches { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:20px; }
+        .pd-swatch {
+            width:36px; height:36px; border-radius:50%;
+            border:3px solid #e8e8f0; cursor:pointer;
+            transition:all .2s; position:relative;
+        }
+        .pd-swatch:hover { transform:scale(1.15); }
+        .pd-swatch.active { border-color:#FF2BAC; box-shadow:0 0 0 3px rgba(255,43,172,.2); transform:scale(1.1); }
+        .pd-swatch-label { font-size:11px; color:#6c757d; margin-top:4px; text-align:center; max-width:60px; }
+        .pd-swatch-wrap { display:flex; flex-direction:column; align-items:center; }
+
+        /* ── Qty ── */
+        .pd-qty { display:flex; align-items:center; gap:0; border:1.5px solid #e8e8f0; border-radius:8px; overflow:hidden; width:fit-content; margin-bottom:20px; }
+        .pd-qty-btn { width:40px; height:40px; border:none; background:#f8f9fa; font-size:18px; cursor:pointer; transition:background .2s; }
+        .pd-qty-btn:hover { background:#ffe0f5; color:#FF2BAC; }
+        .pd-qty-val { width:48px; text-align:center; font-size:15px; font-weight:600; border:none; outline:none; background:#fff; }
+
+        /* ── Action buttons ── */
+        .pd-btn-cart { background:linear-gradient(135deg,#FF2BAC,#FF6BCE); color:#fff; border:none; border-radius:10px; padding:14px 24px; font-size:15px; font-weight:600; cursor:pointer; transition:all .2s; flex:1; }
+        .pd-btn-cart:hover { box-shadow:0 8px 24px rgba(255,43,172,.3); transform:translateY(-1px); }
+        .pd-btn-checkout { background:#1a1a3e; color:#fff; border:none; border-radius:10px; padding:14px 24px; font-size:15px; font-weight:600; cursor:pointer; transition:all .2s; flex:1; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:6px; }
+        .pd-btn-checkout:hover { background:#2d2d5f; color:#fff; transform:translateY(-1px); }
+        .pd-btn-wishlist { width:52px; height:52px; border:1.5px solid #e8e8f0; background:#fff; border-radius:10px; font-size:20px; cursor:pointer; transition:all .2s; flex-shrink:0; }
+        .pd-btn-wishlist:hover, .pd-btn-wishlist.active { border-color:#FF2BAC; background:#fff0f8; }
+
+        /* ── Description ── */
+        .pd-desc-title { font-size:13px; font-weight:700; color:#1a1a3e; text-transform:uppercase; letter-spacing:.4px; padding-top:20px; border-top:1px solid #e8e8f0; margin-top:20px; margin-bottom:10px; }
+        .pd-desc { font-size:14px; color:#6c757d; line-height:1.8; }
+
+        /* ── Related ── */
+        .pd-related-title { font-family:'Playfair Display',serif; font-size:24px; font-weight:700; color:#1a1a3e; }
+
+        /* ── Loading/Error ── */
+        .pd-loading { text-align:center; padding:80px 0; }
+        .pd-spinner { width:40px; height:40px; border:3px solid #e8e8f0; border-top-color:#FF2BAC; border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 16px; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+    </style>
 </head>
 <body>
 
-<nav class="shop-navbar">
+<!-- ── NAVBAR ─────────────────────────────────────────────── -->
+<nav class="pd-navbar">
     <div class="container d-flex align-items-center justify-content-between">
-        <a href="/" class="navbar-brand">Luxe</a>
+        <div class="d-flex align-items-center gap-3">
+            <a href="/" class="pd-brand">Luxe</a>
+            <nav aria-label="breadcrumb" class="d-none d-md-block">
+                <ol class="breadcrumb mb-0" style="font-size:13px">
+                    <li class="breadcrumb-item"><a href="/" style="color:#FF2BAC">Home</a></li>
+                    <li class="breadcrumb-item"><a href="/buyer/market" style="color:#FF2BAC">Shop</a></li>
+                    <li class="breadcrumb-item active" id="breadcrumbName">Product</li>
+                </ol>
+            </nav>
+        </div>
         <div class="d-flex align-items-center gap-2">
-            <a href="/buyer/wishlist" class="nav-icon-btn">❤️</a>
-            <a href="/buyer/cart" class="nav-icon-btn">
-                🛒<span class="nav-badge cart-count" style="display:none">0</span>
+            {% if session.user %}
+            <a href="/buyer/wishlist" class="pd-nav-icon">❤️</a>
+            <a href="/buyer/cart" class="pd-nav-icon" style="position:relative">
+                🛒<span class="pd-cart-badge cart-count" id="cartBadge" style="display:none">0</span>
             </a>
-            <a href="/buyer" class="nav-icon-btn">👤</a>
+            <a href="/buyer/profile" class="pd-nav-icon" style="font-size:13px;font-weight:600">
+                👤 {{ session.user.name.split()[0] }}
+            </a>
+            <a href="/logout" style="font-size:12px;color:#FF2BAC;text-decoration:none">Logout</a>
+            {% else %}
+            <a href="/login"    style="font-size:13px;font-weight:600;color:#1a1a3e;text-decoration:none">Login</a>
+            <a href="/register" class="btn btn-sm" style="background:linear-gradient(135deg,#FF2BAC,#FF6BCE);color:#fff;border:none;font-size:13px">Register</a>
+            {% endif %}
         </div>
     </div>
 </nav>
 
-<div class="container py-3">
-    <nav class="shop-breadcrumb">
-        <a href="/">Home</a> / <a href="/buyer/market">Shop</a> / <span id="productBreadcrumbName">Product</span>
-    </nav>
+<!-- ── CONTENT ────────────────────────────────────────────── -->
+<div class="container py-4">
 
-    <div class="row g-4">
-        <!-- Image -->
-        <div class="col-12 col-md-5">
-            <div class="product-img rounded-3" style="height:360px;font-size:100px;overflow:hidden" id="productMainImage">🛍️</div>
-            <div id="productThumbs" style="margin-top:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px"></div>
-        </div>
+    <!-- Loading -->
+    <div id="pdLoading" class="pd-loading">
+        <div class="pd-spinner"></div>
+        <p style="color:#999;font-size:13px">Loading product...</p>
+    </div>
 
-        <!-- Details -->
-        <div class="col-12 col-md-7">
-            <h1 style="font-family:var(--font-display);font-size:24px;font-weight:700;margin-bottom:8px" id="productName">Loading...</h1>
-            <div id="productRating" class="mb-2"></div>
-            <div class="mb-3">
-                <span style="font-size:28px;font-weight:700;color:var(--pink)" id="productPrice"></span>
-                <span style="font-size:16px;color:var(--gray);text-decoration:line-through;margin-left:8px" id="productOriginal"></span>
-            </div>
-            <div id="productStock" class="mb-3" style="font-size:13px"></div>
-            <div id="productVariants" class="mb-3" style="font-size:13px;color:var(--gray)"></div>
-            <div class="mb-3">
-                <label for="selectedVariant" style="font-size:13px;font-weight:600;margin-bottom:6px;display:block">Select Variant</label>
-                <select id="selectedVariant" class="form-select">
-                    <option value="">No variant</option>
-                </select>
-            </div>
-            <p style="font-size:14px;color:var(--gray);line-height:1.7" id="productDesc"></p>
+    <!-- Error -->
+    <div id="pdError" style="display:none;text-align:center;padding:80px 20px">
+        <div style="font-size:56px;margin-bottom:16px">😕</div>
+        <h4 style="color:#1a1a3e;margin-bottom:8px">Product not found</h4>
+        <a href="/buyer/market" class="btn" style="background:linear-gradient(135deg,#FF2BAC,#FF6BCE);color:#fff;border:none">Back to Shop</a>
+    </div>
 
-            <div class="d-flex align-items-center gap-3 mt-4 flex-wrap">
-                <div class="qty-control">
-                    <button class="qty-btn" onclick="changeDetailQty(-1)">−</button>
-                    <span class="qty-value" id="detailQty">1</span>
-                    <button class="qty-btn" onclick="changeDetailQty(1)">+</button>
+    <!-- Product -->
+    <div id="pdContent" style="display:none">
+        <div class="row g-4">
+
+            <!-- Left: Image carousel -->
+            <div class="col-12 col-md-5">
+                <div class="pd-carousel-wrap">
+                    <div id="pdCarousel" class="carousel slide pd-carousel" data-bs-ride="false">
+                        <div class="carousel-inner" id="carouselInner">
+                            <div class="carousel-item active">
+                                <div class="placeholder-icon">🛍️</div>
+                            </div>
+                        </div>
+                        <button class="carousel-control-prev" type="button" data-bs-target="#pdCarousel" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon"></span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#pdCarousel" data-bs-slide="next">
+                            <span class="carousel-control-next-icon"></span>
+                        </button>
+                    </div>
                 </div>
-                <button class="btn-pink px-4 py-2 flex-grow-1" id="addToCartBtn">Add to Cart 🛒</button>
-                <button class="btn-outline-pink px-3 py-2" id="wishlistBtn">❤️</button>
+                <!-- Thumbnails with arrow navigation -->
+                <div class="pd-thumb-nav" id="pdThumbNav" style="display:none">
+                    <button class="pd-thumb-arrow" id="pdThumbPrev" onclick="scrollThumbs(-1)" disabled>&#8249;</button>
+                    <div class="pd-thumb-viewport">
+                        <div class="pd-thumb-track" id="pdThumbTrack"></div>
+                    </div>
+                    <button class="pd-thumb-arrow" id="pdThumbNext" onclick="scrollThumbs(1)">&#8250;</button>
+                </div>
+            </div>
+
+            <!-- Right: Info -->
+            <div class="col-12 col-md-7">
+                <div class="pd-info">
+                    <div class="pd-category" id="pdCategory"></div>
+                    <h1 class="pd-name" id="pdName">Loading...</h1>
+                    <div class="pd-seller" id="pdSeller"></div>
+                    <div class="pd-price" id="pdPrice"></div>
+                    <div class="pd-stock" id="pdStock"></div>
+
+                    <!-- Variants -->
+                    <div id="pdVariantsSection" style="display:none">
+                        <div class="pd-label">Select Color</div>
+                        <div class="pd-swatches" id="pdSwatches"></div>
+                        <input type="hidden" id="selectedVariant">
+                    </div>
+
+                    <!-- Quantity -->
+                    <div class="pd-label">Quantity</div>
+                    <div class="pd-qty">
+                        <button class="pd-qty-btn" onclick="changeQtyDetail(-1)">−</button>
+                        <span class="pd-qty-val" id="pdQtyVal">1</span>
+                        <button class="pd-qty-btn" onclick="changeQtyDetail(1)">+</button>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <div class="d-flex gap-2 flex-wrap mb-3">
+                        <button class="pd-btn-cart" id="pdAddCartBtn">🛒 Add to Cart</button>
+                        <a href="/buyer/checkout" class="pd-btn-checkout" id="pdCheckoutBtn">⚡ Buy Now</a>
+                        <button class="pd-btn-wishlist" id="pdWishlistBtn" onclick="togglePdWishlist()">❤️</button>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="pd-desc-title">Description</div>
+                    <p class="pd-desc" id="pdDesc"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Related products -->
+        <div class="mt-5">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="pd-related-title mb-0">You May Also Like</h2>
+                <a href="/buyer/market" class="btn btn-sm btn-outline-secondary">View All</a>
+            </div>
+            <div class="row g-3" id="pdRelated">
+                <div class="col-12 text-center py-4">
+                    <div class="pd-spinner"></div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Related products -->
-    <div class="mt-5">
-        <div class="section-title">You May Also Like</div>
-        <div class="row g-2" id="relatedGrid">
-            <div class="col-12 text-center py-4">
-                <div class="spinner-border" style="color:var(--pink)"></div>
-            </div>
-        </div>
-    </div>
 </div>
 
 <div class="shop-toast" id="shopToast"></div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
 <script src="{{ url_for('static', filename='js/shop.js') }}"></script>
 <script>
-let detailQty = 1;
-function changeDetailQty(delta) {
-    detailQty = Math.max(1, detailQty + delta);
-    document.getElementById('detailQty').textContent = detailQty;
+let pdQty        = 1;
+let pdProduct    = null;
+let pdVariantMap = {}; // variantId -> { images: [], color: '', hex: '' }
+
+// ── Color name → CSS color ────────────────────────────────────
+const COLOR_NAMES = {
+    'black':'#1a1a1a','white':'#ffffff','red':'#e74c3c','pink':'#FF6BCE',
+    'blue':'#3498db','navy':'#1a2a5e','green':'#2ecc71','yellow':'#f1c40f',
+    'orange':'#e67e22','purple':'#9b59b6','brown':'#795548','gray':'#95a5a6',
+    'grey':'#95a5a6','beige':'#f5f0e8','maroon':'#800000','teal':'#009688',
+    'lavender':'#e6e6fa','coral':'#ff6b6b','mint':'#98ff98','cream':'#fffdd0',
+    'charcoal':'#36454f','gold':'#ffd700','silver':'#c0c0c0','rose':'#ff007f',
+    'violet':'#ee82ee','indigo':'#4b0082','cyan':'#00bcd4','lime':'#cddc39',
+};
+
+function resolveColor(variant) {
+    // 1. Check if SKU contains a hex code
+    const hexMatch = (variant.sku || '').match(/#([0-9a-fA-F]{3,6})/);
+    if (hexMatch) return hexMatch[0];
+    // 2. Check value field directly for hex
+    if (/^#[0-9a-fA-F]{3,6}$/.test(variant.value)) return variant.value;
+    // 3. Look up color name
+    const name = (variant.value || '').toLowerCase().trim();
+    if (COLOR_NAMES[name]) return COLOR_NAMES[name];
+    // 4. Try partial match
+    for (const [key, val] of Object.entries(COLOR_NAMES)) {
+        if (name.includes(key) || key.includes(name)) return val;
+    }
+    return '#cccccc';
 }
 
-// Load related products
-API.shop.getProducts().then(data => {
-    const grid = document.getElementById('relatedGrid');
+// ── Qty ───────────────────────────────────────────────────────
+function changeQtyDetail(d) {
+    pdQty = Math.max(1, pdQty + d);
+    document.getElementById('pdQtyVal').textContent = pdQty;
+}
+
+// ── Wishlist ──────────────────────────────────────────────────
+function togglePdWishlist() {
+    if (!pdProduct) return;
+    const added = toggleWishlist(pdProduct);
+    const btn = document.getElementById('pdWishlistBtn');
+    btn.classList.toggle('active', added);
+}
+
+// ── Select variant ────────────────────────────────────────────
+function selectVariant(variantId, el) {
+    document.querySelectorAll('.pd-swatch').forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('selectedVariant').value = variantId;
+
+    const v = pdProduct.product_variants?.find(v => v.id === variantId);
+    if (v) {
+        // Update stock
+        document.getElementById('pdStock').innerHTML = v.stock > 0
+            ? `<span style="color:#10b981;font-weight:600">✓ In Stock (${v.stock} available)</span>`
+            : `<span style="color:#e74c3c;font-weight:600">✗ Out of Stock</span>`;
+        // Update carousel images for this variant
+        updateCarouselImages(variantId);
+    }
+}
+
+// ── Carousel ──────────────────────────────────────────────────
+const MAX_VISIBLE_THUMBS = 5;
+const THUMB_STEP = 72; // 64px + 8px gap
+let thumbOffset = 0;
+let totalImages  = 0;
+
+function buildCarouselSlides(images) {
+    thumbOffset = 0;
+    totalImages  = images.length;
+
+    const carouselEl = document.getElementById('pdCarousel');
+    const inner      = document.getElementById('carouselInner');
+    const track      = document.getElementById('pdThumbTrack');
+    const nav        = document.getElementById('pdThumbNav');
+
+    // Dispose any existing Bootstrap instance so it re-reads the new slides
+    bootstrap.Carousel.getInstance(carouselEl)?.dispose();
+
+    if (!images.length) {
+        inner.innerHTML = `<div class="carousel-item active"><div class="placeholder-icon">🛍️</div></div>`;
+        track.innerHTML = '';
+        nav.style.display = 'none';
+        carouselEl.querySelectorAll('.carousel-control-prev,.carousel-control-next')
+            .forEach(b => b.style.display = 'none');
+        bootstrap.Carousel.getOrCreateInstance(carouselEl, { ride: false, wrap: true });
+        return;
+    }
+
+    // Build all carousel slides (one per image)
+    inner.innerHTML = images.map((img, i) => {
+        const url = img.startsWith('/') ? img : '/' + img;
+        return `<div class="carousel-item${i === 0 ? ' active' : ''}">
+                    <img src="${url}" alt="product image ${i + 1}">
+                </div>`;
+    }).join('');
+
+    // Build thumbnails
+    track.innerHTML = images.map((img, i) => {
+        const url = img.startsWith('/') ? img : '/' + img;
+        return `<div class="pd-thumb${i === 0 ? ' active' : ''}" data-idx="${i}">
+                    <img src="${url}" alt="thumb ${i + 1}">
+                </div>`;
+    }).join('');
+
+    // Thumbnail click via event delegation
+    track.onclick = (e) => {
+        const thumb = e.target.closest('.pd-thumb');
+        if (!thumb) return;
+        const idx = parseInt(thumb.dataset.idx);
+        setActiveThumb(idx);
+        bootstrap.Carousel.getInstance(carouselEl)?.to(idx);
+    };
+
+    // Show/hide main arrows
+    carouselEl.querySelectorAll('.carousel-control-prev,.carousel-control-next')
+        .forEach(b => b.style.display = images.length > 1 ? '' : 'none');
+
+    // Show thumbnail strip; scroll arrows only when > 5
+    nav.style.display = 'flex';
+    document.getElementById('pdThumbPrev').style.display = images.length > MAX_VISIBLE_THUMBS ? '' : 'none';
+    document.getElementById('pdThumbNext').style.display = images.length > MAX_VISIBLE_THUMBS ? '' : 'none';
+    updateThumbScroll();
+
+    // Init Bootstrap carousel fresh on the new slides
+    bootstrap.Carousel.getOrCreateInstance(carouselEl, { ride: false, wrap: true });
+
+    // Remove any previously attached slid listener, then re-attach
+    carouselEl.removeEventListener('slid.bs.carousel', onCarouselSlid);
+    carouselEl.addEventListener('slid.bs.carousel', onCarouselSlid);
+}
+
+function onCarouselSlid(e) {
+    const items = document.querySelectorAll('#carouselInner .carousel-item');
+    const idx   = Array.from(items).indexOf(e.relatedTarget);
+    if (idx !== -1) setActiveThumb(idx);
+}
+
+function setActiveThumb(idx) {
+    document.querySelectorAll('.pd-thumb').forEach((t, i) => t.classList.toggle('active', i === idx));
+    if (idx < thumbOffset) {
+        thumbOffset = idx;
+    } else if (idx >= thumbOffset + MAX_VISIBLE_THUMBS) {
+        thumbOffset = idx - MAX_VISIBLE_THUMBS + 1;
+    }
+    updateThumbScroll();
+}
+
+function updateThumbScroll() {
+    const maxOffset = Math.max(0, totalImages - MAX_VISIBLE_THUMBS);
+    thumbOffset = Math.min(Math.max(thumbOffset, 0), maxOffset);
+    document.getElementById('pdThumbTrack').style.transform = `translateX(-${thumbOffset * THUMB_STEP}px)`;
+    document.getElementById('pdThumbPrev').disabled = thumbOffset === 0;
+    document.getElementById('pdThumbNext').disabled = thumbOffset >= maxOffset;
+}
+
+function scrollThumbs(dir) {
+    thumbOffset += dir;
+    updateThumbScroll();
+}
+
+function updateCarouselImages(variantId) {
+    const images = pdVariantMap[variantId]?.length
+        ? pdVariantMap[variantId]
+        : (pdVariantMap['general'] || []);
+    buildCarouselSlides(images);
+}
+
+// ── Render product ────────────────────────────────────────────
+function renderProduct(p) {
+    // Make content visible BEFORE building carousel so Bootstrap can measure the DOM
+    document.getElementById('pdLoading').style.display = 'none';
+    document.getElementById('pdContent').style.display = 'block';
+    document.title = `Luxe — ${p.name}`;
+
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML = val; };
+
+    set('breadcrumbName', p.name);
+    set('pdName',     p.name);
+    set('pdCategory', p.category || '');
+    set('pdDesc',     p.description || 'No description available.');
+    set('pdPrice',    formatCurrency(p.price));
+
+    const seller = p.seller ? `${p.seller.first_name||''} ${p.seller.last_name||''}`.trim() : '';
+    set('pdSeller', seller ? `by <strong>${seller}</strong>` : '');
+
+    const stock = p.total_stock ?? 0;
+    set('pdStock', stock > 0
+        ? `<span style="color:#10b981;font-weight:600">✓ In Stock (${stock} available)</span>`
+        : `<span style="color:#e74c3c;font-weight:600">✗ Out of Stock</span>`);
+
+    // Build variant → images map
+    const allImages = p.product_images || [];
+    pdVariantMap = {};
+
+    // All image URLs (used as fallback when no variant-specific or general images exist)
+    const allUrls = allImages
+        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+        .map(img => img.image_url);
+
+    // General images (not tied to any variant)
+    pdVariantMap['general'] = allImages
+        .filter(img => !img.variant_id)
+        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+        .map(img => img.image_url);
+
+    // If no general images, fall back to all images
+    if (!pdVariantMap['general'].length) pdVariantMap['general'] = allUrls;
+
+    // Per-variant images
+    allImages.forEach(img => {
+        if (img.variant_id) {
+            if (!pdVariantMap[img.variant_id]) pdVariantMap[img.variant_id] = [];
+            pdVariantMap[img.variant_id].push(img.image_url);
+        }
+    });
+
+    // For any variant with no images, fall back to general
+    (p.product_variants || []).forEach(v => {
+        if (!pdVariantMap[v.id]?.length) pdVariantMap[v.id] = pdVariantMap['general'];
+    });
+
+    // Build variants swatches
+    const variants = p.product_variants || [];
+    if (variants.length) {
+        document.getElementById('pdVariantsSection').style.display = 'block';
+        const swatchesEl = document.getElementById('pdSwatches');
+        swatchesEl.innerHTML = variants.map((v, i) => {
+            const hex = resolveColor(v);
+            return `<div class="pd-swatch-wrap">
+                        <button class="pd-swatch ${i === 0 ? 'active' : ''}"
+                            style="background:${hex}"
+                            title="${v.value}"
+                            onclick="selectVariant('${v.id}', this)">
+                        </button>
+                        <span class="pd-swatch-label">${v.value}</span>
+                    </div>`;
+        }).join('');
+        // Pre-select first variant
+        document.getElementById('selectedVariant').value = variants[0].id;
+        // Show images for first variant (or general if none)
+        const firstVarImages = pdVariantMap[variants[0].id]?.length
+            ? pdVariantMap[variants[0].id]
+            : pdVariantMap['general'];
+        buildCarouselSlides(firstVarImages || []);
+    } else {
+        buildCarouselSlides(pdVariantMap['general'] || []);
+    }
+
+    // Add to cart
+    document.getElementById('pdAddCartBtn').onclick = () => {
+        const variantId = document.getElementById('selectedVariant')?.value || null;
+        addToCart({ id: p.id, name: p.name }, pdQty, variantId);
+    };
+
+    // Buy Now — add to cart then redirect to checkout
+    document.getElementById('pdCheckoutBtn').onclick = async (e) => {
+        e.preventDefault();
+        const variantId = document.getElementById('selectedVariant')?.value || null;
+        await addToCart({ id: p.id, name: p.name }, pdQty, variantId);
+        window.location.href = '/buyer/checkout';
+    };
+
+    // Wishlist state
+    if (isWishlisted(p.id)) {
+        document.getElementById('pdWishlistBtn').classList.add('active');
+    }
+}
+
+// ── Load related ──────────────────────────────────────────────
+async function loadRelated(category, excludeId) {
+    const grid = document.getElementById('pdRelated');
     if (!grid) return;
-    const items = data.slice(0, 4);
-    grid.innerHTML = items.map(p => renderProductCard(p)).join('');
-}).catch(() => {});
+    const data = await fetch(`/buyer/api/products${category ? '?category=' + encodeURIComponent(category) : ''}`)
+        .then(r => r.json()).catch(() => []);
+    const related = data.filter(p => p.id !== excludeId).slice(0, 4);
+    if (!related.length) {
+        grid.innerHTML = '<div class="col-12 text-center text-muted py-3">No related products.</div>';
+        return;
+    }
+    grid.innerHTML = '';
+    related.forEach(p => {
+        const col = document.createElement('div');
+        col.className = 'col-6 col-md-3';
+        col.appendChild(buildMarketCard(p));
+        grid.appendChild(col);
+    });
+}
+
+// ── Init ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+    updateCartBadge();
+    const id = new URLSearchParams(window.location.search).get('id');
+    if (!id) { document.getElementById('pdLoading').style.display='none'; document.getElementById('pdError').style.display='block'; return; }
+
+    const p = await fetch(`/buyer/api/products/${id}`)
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null);
+
+    if (!p || p.error) {
+        document.getElementById('pdLoading').style.display = 'none';
+        document.getElementById('pdError').style.display   = 'block';
+        return;
+    }
+
+    pdProduct = p;
+    renderProduct(p);
+    loadRelated(p.category, p.id);
+});
 </script>
 </body>
 </html>

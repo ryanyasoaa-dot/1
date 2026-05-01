@@ -104,7 +104,7 @@ def update_application_status(app_id):
         application = app_model.get_by_id(app_id)
         if not application:
             return jsonify({'error': 'Application not found'}), 404
-        app_model.update_status(app_id, status, notes=notes)
+        app_model.update_status(app_id, status, reject_reason=notes if status == 'rejected' else None)
         if status == 'approved':
             user_model.update_role(application['user_id'], application['role'])
         return jsonify({'success': True, 'message': 'Status updated'})

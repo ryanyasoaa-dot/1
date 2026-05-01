@@ -18,8 +18,16 @@ class AuthService:
 
     def authenticate_user(self, email, password):
         user = self.user_model.get_by_email(email)
-        if not user or user['password'] != password:
+        if not user:
             return {'success': False, 'error': 'Invalid email or password'}
+
+        from security import verify_password, hash_password
+        if not verify_password(password, user['password']):
+            return {'success': False, 'error': 'Invalid email or password'}
+
+        # Upgrade legacy plaintext password to hashed on successful login
+        if not user['password'].startswith('pbkdf2:'):
+            self.user_model.update(user['id'], {'password': hash_password(password)})
 
         application = self.app_model.get_by_user_id(user['id'])
         if application and application['status'] == 'pending':
@@ -57,14 +65,15 @@ class AuthService:
         if self.user_model.get_by_email(email):
             return {'success': False, 'error': 'This email is already registered.'}
 
+        from security import hash_password, sanitise
         user = self.user_model.create({
             'id':          str(uuid.uuid4()),
-            'first_name':  first_name,
-            'middle_name': middle_name,
-            'last_name':   last_name,
+            'first_name':  sanitise(first_name, 100),
+            'middle_name': sanitise(middle_name, 100) if middle_name else None,
+            'last_name':   sanitise(last_name, 100),
             'email':       email,
-            'password':    password,
-            'phone':       phone,
+            'password':    hash_password(password),
+            'phone':       sanitise(phone, 20),
             'role':        role
         })
         if not user:
