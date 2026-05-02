@@ -316,78 +316,178 @@ async function reverseGeocode(lat, lng, ids) {
 
 // ── Match Nominatim address → PSGC dropdowns ─────────────────
 async function syncDropdownsFromAddress(addr, ids) {
-    // Nominatim PH fields:
-    // state       → region (e.g. "Calabarzon", "Metro Manila")
-    // province    → province (e.g. "Laguna")
-    // city/town/municipality/village → city
-    // suburb/neighbourhood/quarter  → barangay
-
     const regionName   = addr.state || addr.region || '';
     const provinceName = addr.province || addr.county || '';
-    const cityName     = addr.city || addr.town || addr.municipality || addr.city_district || addr.village || '';
-    const barangayName = addr.suburb || addr.neighbourhood || addr.quarter || '';
+    const cityName     = addr.city || addr.town || addr.municipality ||
+                         addr.city_district || addr.village || '';
+    const barangayName = addr.suburb || addr.neighbourhood || addr.quarter ||
+                         addr.hamlet || addr.residential || '';
 
-    const regionEl = getEl(ids.region);
-    if (!regionEl || !regionName) return;
+    // Map common Philippine region names to PSGC codes
+    const regionMap = {
+        'national capital region': '130000000',
+        'ncr': '130000000',
+        'metro manila': '130000000',
+        'region i': '010000000',
+        'ilocos region': '010000000',
+        'region ii': '020000000',
+        'cagayan valley': '020000000',
+        'region iii': '030000000',
+        'central luzon': '030000000',
+        'region iv-a': '040000000',
+        'calabarzon': '040000000',
+        'region iv-b': '170000000',
+        'mimaropa': '170000000',
+        'region v': '050000000',
+        'bicol region': '050000000',
+        'region vi': '060000000',
+        'western visayas': '060000000',
+        'region vii': '070000000',
+        'central visayas': '070000000',
+        'region viii': '080000000',
+        'eastern visayas': '080000000',
+        'region ix': '090000000',
+        'zamboanga peninsula': '090000000',
+        'region x': '100000000',
+        'northern mindanao': '100000000',
+        'region xi': '110000000',
+        'davao region': '110000000',
+        'region xii': '120000000',
+        'soccsksargen': '120000000',
+        'region xiii': '160000000',
+        'caraga': '160000000',
+        'bangsamoro autonomous region in muslim mindanao': '190000000',
+        'barrm': '190000000',
+        'cordillera administrative region': '140000000',
+        'car': '140000000'
+    };
 
-    // 1. Match region
-    const regionCode = matchOption(regionEl, regionName);
-    if (!regionCode) return;
-    regionEl.value = regionCode;
-
-    // 2. Load & match province
-    const provinces = await loadProvinces(regionCode, ids);
-    const provEl    = getEl(ids.province);
-
-    let cityData = [];
-    if (provinces.length && provinceName) {
-        const provCode = matchOption(provEl, provinceName);
-        if (provCode) {
-            provEl.value = provCode;
-            cityData = await loadCities(provCode, ids);
-        } else {
-            // Province not matched — try loading cities by region
-            cityData = await loadCitiesByRegion(regionCode, ids);
-        }
+    let regionCode = null;
+    const normRegion = normalizePH(regionName);
+    if (normRegion in regionMap) {
+        regionCode = regionMap[normRegion];
     } else {
-        // No province (NCR) — cities already loaded by loadProvinces
-        cityData = Array.from(getEl(ids.city)?.options || [])
-            .filter(o => o.value)
-            .map(o => ({ code: o.value, name: o.text }));
+        // Fallback to matching
+        const regionEl = getEl(ids.region);
+        if (!regionEl) return;
+        await waitForOptions(regionEl);
+        regionCode = matchOption(regionEl, regionName);
     }
 
-    // 3. Match city
-    const cityEl   = getEl(ids.city);
-    const cityCode = matchOption(cityEl, cityName);
-    if (!cityCode) return;
-    cityEl.value = cityCode;
+    if (!regionCode) return;
+    getEl(ids.region).value = regionCode;
 
-    // 4. Load & match barangay
-    await loadBarangays(cityCode, ids);
+    // 2. Load provinces for this region
+    const provinces = await fetchPSGC(`regions/${regionCode}/provinces/`).catch(() => []);
+    const provEl = getEl(ids.province);
+
+    let cityCode = null;
+
+    if (provinces.length) {
+        // Has provinces — populate and match
+        populateSelect(ids.province, provinces.map(p => ({ code: p.code, name: p.name })), 'Select Province');
+        if (provEl) provEl.disabled = false;
+
+        let provCode = provinceName ? matchOption(provEl, provinceName) : null;
+
+        let cities = [];
+        if (provCode) {
+            provEl.value = provCode;
+            cities = await fetchPSGC(`provinces/${provCode}/cities-municipalities/`).catch(() => []);
+        } else {
+            // Province not matched — load all cities in region as fallback
+            cities = await fetchPSGC(`regions/${regionCode}/cities-municipalities/`).catch(() => []);
+        }
+
+        populateSelect(ids.city, cities.map(c => ({ code: c.code, name: c.name })), 'Select City/Municipality');
+        const cityEl = getEl(ids.city);
+        if (cityEl) cityEl.disabled = false;
+        cityCode = matchOption(cityEl, cityName);
+        if (cityCode) cityEl.value = cityCode;
+
+    } else {
+        // No provinces (NCR) — load cities directly by region
+        if (provEl) { provEl.innerHTML = '<option value="">N/A</option>'; provEl.disabled = false; }
+        resetSelect(ids.city, 'Select City/Municipality');
+        resetSelect(ids.barangay, 'Select Barangay');
+
+        const cities = await fetchPSGC(`regions/${regionCode}/cities-municipalities/`).catch(() => []);
+        populateSelect(ids.city, cities.map(c => ({ code: c.code, name: c.name })), 'Select City/Municipality');
+        const cityEl = getEl(ids.city);
+        if (cityEl) cityEl.disabled = false;
+        cityCode = matchOption(cityEl, cityName);
+        if (cityCode) cityEl.value = cityCode;
+    }
+
+    if (!cityCode) return;
+
+    // 3. Load barangays for matched city
+    const barangays = await fetchPSGC(`cities-municipalities/${cityCode}/barangays/`).catch(() => []);
+    populateSelect(ids.barangay, barangays.map(b => ({ code: b.code, name: b.name })), 'Select Barangay');
+    const brgyEl = getEl(ids.barangay);
+    if (brgyEl) brgyEl.disabled = false;
+
     if (barangayName) {
-        const brgyEl   = getEl(ids.barangay);
         const brgyCode = matchOption(brgyEl, barangayName);
         if (brgyCode) brgyEl.value = brgyCode;
     }
 }
 
+// ── Wait for a select to have options (regions load async) ────
+function waitForOptions(selectEl, maxWait = 5000) {
+    return new Promise(resolve => {
+        if (selectEl.options.length > 1) { resolve(); return; }
+        const start = Date.now();
+        const check = setInterval(() => {
+            if (selectEl.options.length > 1 || Date.now() - start > maxWait) {
+                clearInterval(check);
+                resolve();
+            }
+        }, 100);
+    });
+}
+
 // ── Fuzzy option matcher ──────────────────────────────────────
+function normalizePH(s) {
+    return (s || '').toLowerCase()
+        .replace(/\bncr\b/g, 'national capital region')
+        .replace(/\bmetro manila\b/g, 'national capital region')
+        .replace(/^city of /,  '')
+        .replace(/^municipality of /, '')
+        .replace(/ city$/, '')
+        .replace(/\bst\.?\s/g, 'saint ')
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 function matchOption(selectEl, name) {
     if (!selectEl || !name) return null;
-    const q    = name.toLowerCase().trim();
     const opts = Array.from(selectEl.options).filter(o => o.value);
+    const raw  = name.toLowerCase().trim();
+    const norm = normalizePH(name);
 
-    // 1. Exact
-    for (const o of opts) if (o.text.toLowerCase() === q) return o.value;
-    // 2. Select contains query
-    for (const o of opts) if (o.text.toLowerCase().includes(q)) return o.value;
-    // 3. Query contains option text
-    for (const o of opts) if (q.includes(o.text.toLowerCase())) return o.value;
-    // 4. Word-level overlap
-    const qWords = q.split(/\s+/);
+    // 1. Exact raw
+    for (const o of opts) if (o.text.toLowerCase() === raw)  return o.value;
+    // 2. Exact normalized
+    for (const o of opts) if (normalizePH(o.text) === norm)  return o.value;
+    // 3. Option text contains query (raw)
+    for (const o of opts) if (o.text.toLowerCase().includes(raw))  return o.value;
+    // 4. Query contains option text (normalized)
+    for (const o of opts) if (norm.includes(normalizePH(o.text)))  return o.value;
+    // 5. Option text contains query (normalized)
+    for (const o of opts) if (normalizePH(o.text).includes(norm))  return o.value;
+    // 6. Word-level overlap (normalized)
+    const qWords = norm.split(/\s+/).filter(w => w.length > 2);
     for (const o of opts) {
-        const oWords = o.text.toLowerCase().split(/\s+/);
-        if (qWords.some(w => w.length > 3 && oWords.some(ow => ow.includes(w) || w.includes(ow)))) return o.value;
+        const oWords = normalizePH(o.text).split(/\s+/);
+        const hits = qWords.filter(w => oWords.some(ow => ow.includes(w) || w.includes(ow)));
+        if (hits.length >= Math.min(2, qWords.length)) return o.value;
+    }
+    // 7. Single strong word match
+    for (const o of opts) {
+        const oWords = normalizePH(o.text).split(/\s+/);
+        if (qWords.some(w => w.length > 4 && oWords.includes(w))) return o.value;
     }
     return null;
 }

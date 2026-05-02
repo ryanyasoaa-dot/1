@@ -1,7 +1,14 @@
 /**
- * rider.js — All rider page logic
- * Depends on: api.js
+ * rider.js — All rider page logic with map integration
+ * Depends on: api.js, Leaflet
  */
+
+// Global map variables
+let deliveryMap = null;
+let pickupMarker = null;
+let deliveryMarker = null;
+let routeLine = null;
+let currentDeliveryId = null;
 
 // ── Helpers ───────────────────────────────────────────────────
 function formatDate(iso) {
@@ -44,10 +51,159 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (document.getElementById('deliveriesTable')) loadDeliveries();
-    if (document.getElementById('totalEarnings'))   loadEarnings();
+    if (document.getElementById('deliveriesTable')) {
+        loadDeliveries();
+        initializeMap();
+    }
+    if (document.getElementById('riderRecentDeliveries')) loadRiderDashboard();
+    if (document.getElementById('totalEarnings'))         loadEarnings();
 });
 
+// ── Map Integration ───────────────────────────────────────────
+function initializeMap() {
+    const mapElement = document.getElementById('deliveryMap');
+    if (!mapElement || typeof L === 'undefined') return;
+
+    // Initialize map centered on Philippines
+    deliveryMap = L.map('deliveryMap').setView([12.8797, 121.7740], 6);
+    
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+    }).addTo(deliveryMap);
+}
+
+function showDeliveryRoute(orderId) {
+    if (!deliveryMap) {
+        initializeMap();
+        if (!deliveryMap) return;
+    }
+
+    currentDeliveryId = orderId;
+    const mapContainer = document.getElementById('mapContainer');
+    const mapTitle = document.getElementById('mapTitle');
+    
+    mapContainer.style.display = 'block';
+    mapTitle.textContent = `Delivery Route - Order #${orderId.slice(0, 8)}`;
+
+    // Clear existing markers and route
+    if (pickupMarker) deliveryMap.removeLayer(pickupMarker);
+    if (deliveryMarker) deliveryMap.removeLayer(deliveryMarker);
+    if (routeLine) deliveryMap.removeLayer(routeLine);
+
+    // Fetch location data
+    API.rider.getLocations(orderId)
+        .then(data => {
+            const pickup = data.pickup_location;
+            const delivery = data.delivery_location;
+
+            // Update address displays
+            document.getElementById('pickupAddress').textContent = pickup.formatted_address;
+            document.getElementById('deliveryAddress').textContent = delivery.formatted_address;
+
+            // Add markers if coordinates are available
+            if (pickup.latitude && pickup.longitude) {
+                pickupMarker = L.marker([pickup.latitude, pickup.longitude], {
+                    icon: L.divIcon({
+                        className: 'custom-marker pickup-marker-icon',
+                        html: '<div style="background:#007bff;color:white;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)">📦</div>',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    })
+                }).addTo(deliveryMap);
+                
+                pickupMarker.bindPopup(`
+                    <div style="text-align:center;">
+                        <strong>📦 Pickup Location</strong><br>
+                        <small>${pickup.formatted_address}</small>
+                    </div>
+                `);
+            }
+
+            if (delivery.latitude && delivery.longitude) {
+                deliveryMarker = L.marker([delivery.latitude, delivery.longitude], {
+                    icon: L.divIcon({
+                        className: 'custom-marker delivery-marker-icon',
+                        html: '<div style="background:#dc3545;color:white;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)">🎯</div>',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    })
+                }).addTo(deliveryMap);
+                
+                deliveryMarker.bindPopup(`
+                    <div style="text-align:center;">
+                        <strong>🎯 Delivery Location</strong><br>
+                        <small>${delivery.formatted_address}</small>
+                    </div>
+                `);
+            }
+
+            // Draw route and calculate distance if both coordinates exist
+            if (pickup.latitude && pickup.longitude && delivery.latitude && delivery.longitude) {
+                const pickupLatLng = [pickup.latitude, pickup.longitude];
+                const deliveryLatLng = [delivery.latitude, delivery.longitude];
+                
+                // Draw route line
+                routeLine = L.polyline([pickupLatLng, deliveryLatLng], {
+                    color: '#28a745',
+                    weight: 4,
+                    opacity: 0.7,
+                    dashArray: '10, 10'
+                }).addTo(deliveryMap);
+                
+                // Calculate and display distance
+                const distance = calculateDistance(pickup.latitude, pickup.longitude, delivery.latitude, delivery.longitude);
+                document.getElementById('routeDistance').textContent = `Distance: ${distance.toFixed(2)} km`;
+                
+                // Fit map to show both markers
+                const group = new L.featureGroup([pickupMarker, deliveryMarker]);
+                deliveryMap.fitBounds(group.getBounds().pad(0.1));
+            } else {
+                // If coordinates missing, show message
+                let missingInfo = [];
+                if (!pickup.latitude || !pickup.longitude) missingInfo.push('pickup location');
+                if (!delivery.latitude || !delivery.longitude) missingInfo.push('delivery location');
+                
+                document.getElementById('routeDistance').textContent = `Missing coordinates for ${missingInfo.join(' and ')}`;
+                
+                // Center on available location or default
+                if (pickup.latitude && pickup.longitude) {
+                    deliveryMap.setView([pickup.latitude, pickup.longitude], 15);
+                } else if (delivery.latitude && delivery.longitude) {
+                    deliveryMap.setView([delivery.latitude, delivery.longitude], 15);
+                }
+            }
+
+            // Refresh map size
+            setTimeout(() => {
+                deliveryMap.invalidateSize();
+            }, 100);
+        })
+        .catch(error => {
+            console.error('Error loading delivery locations:', error);
+            document.getElementById('pickupAddress').textContent = 'Error loading pickup address';
+            document.getElementById('deliveryAddress').textContent = 'Error loading delivery address';
+            document.getElementById('routeDistance').textContent = 'Error calculating distance';
+        });
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
+function hideMap() {
+    const mapContainer = document.getElementById('mapContainer');
+    mapContainer.style.display = 'none';
+    currentDeliveryId = null;
+}
 // ── Deliveries ────────────────────────────────────────────────
 async function loadDeliveries(filter = 'all') {
     const tbody = document.getElementById('deliveriesTable');
@@ -61,22 +217,30 @@ async function loadDeliveries(filter = 'all') {
         return;
     }
 
-    tbody.innerHTML = filtered.map(d => `
-        <tr>
-            <td>#${(d.id || '').slice(0,8)}</td>
-            <td>${d.customer_name || '—'}</td>
-            <td>${d.address       || '—'}</td>
-            <td>${d.store_name    || '—'}</td>
-            <td><span class="badge badge-${d.status}">${d.status}</span></td>
-            <td class="actions">
-                ${d.status === 'ready_for_pickup'
-                    ? `<button class="btn btn-view" onclick="acceptDelivery('${d.id}')">Accept</button>`
-                    : d.status === 'in_transit'
-                    ? `<button class="btn btn-approve" onclick="markDelivered('${d.id}')">Mark Delivered</button>`
-                    : '—'}
-            </td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = filtered.map(d => {
+        const hasCoordinates = (d.pickup_latitude && d.pickup_longitude) || (d.delivery_latitude && d.delivery_longitude);
+        const mapButton = hasCoordinates 
+            ? `<button class="btn btn-view" onclick="showDeliveryRoute('${d.id}')" style="margin-right:4px;">📍 Map</button>`
+            : '';
+        
+        return `
+            <tr>
+                <td>#${(d.id || '').slice(0,8)}</td>
+                <td>${d.customer_name || '—'}</td>
+                <td>${d.address       || '—'}</td>
+                <td>${d.store_name    || '—'}</td>
+                <td><span class="badge badge-${d.status}">${d.status}</span></td>
+                <td class="actions">
+                    ${mapButton}
+                    ${d.status === 'ready_for_pickup'
+                        ? `<button class="btn btn-view" onclick="acceptDelivery('${d.id}')">Accept</button>`
+                        : d.status === 'in_transit'
+                        ? `<button class="btn btn-approve" onclick="markDelivered('${d.id}')">Mark Delivered</button>`
+                        : '—'}
+                </td>
+            </tr>
+        `;
+    }).join('');
 }
 
 async function acceptDelivery(id) {
@@ -105,12 +269,99 @@ function setFilterTab(el, callback, value) {
     callback(value);
 }
 
-// ── Earnings ──────────────────────────────────────────────────
+// ── Rider Dashboard ───────────────────────────────────────────
+let riderEarningsChart = null;
+
+async function loadRiderDashboard() {
+    const [summary, earningsData] = await Promise.all([
+        API.rider.getDashboard().catch(() => ({})),
+        API.rider.getEarnings().catch(() => ({}))
+    ]);
+
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    set('statTotal',     summary.total_deliveries     || 0);
+    set('statCompleted', summary.completed_deliveries || 0);
+    set('statActive',    summary.active_deliveries    || 0);
+    set('statEarnings',  formatCurrency(summary.total_earnings || 0));
+    set('earningsBig',   formatCurrency(summary.total_earnings || 0));
+    set('earningsToday', formatCurrency(summary.today_earnings || 0));
+    set('earningsWeek',  formatCurrency(summary.week_earnings  || 0));
+    set('earningsMonth', formatCurrency(summary.month_earnings || 0));
+    const rateLabel = document.getElementById('rateLabel');
+    if (rateLabel) rateLabel.textContent = `₱${summary.rate_per_delivery || 50} per delivery`;
+
+    const chart  = earningsData.chart || [];
+    const canvas = document.getElementById('riderEarningsChart');
+    if (canvas) {
+        if (riderEarningsChart) riderEarningsChart.destroy();
+        riderEarningsChart = new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: chart.map(d => d.label),
+                datasets: [{ label: 'Earnings (₱)', data: chart.map(d => d.value), backgroundColor: 'rgba(26,26,62,.15)', borderColor: '#1a1a3e', borderWidth: 2, borderRadius: 6 }]
+            },
+            options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '₱' + v } } } }
+        });
+    }
+
+    const tbody  = document.getElementById('riderRecentDeliveries');
+    if (tbody) {
+        const history = (earningsData.history || []).slice(0, 10);
+        if (!history.length) {
+            tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🚚</div>No deliveries yet.</div></td></tr>';
+        } else {
+            tbody.innerHTML = history.map(h => `
+                <tr>
+                    <td>#${h.order_id}</td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td style="color:#28a745;font-weight:600">${formatCurrency(h.amount)}</td>
+                    <td><span class="badge badge-delivered">delivered</span></td>
+                </tr>
+            `).join('');
+        }
+    }
+}
+
+// ── Earnings page ─────────────────────────────────────────────
+let earningsPageChart = null;
+
 async function loadEarnings() {
     const data = await API.rider.getEarnings().catch(() => ({}));
     const set  = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    set('totalEarnings',  formatCurrency(data.total));
-    set('pendingPayout',  formatCurrency(data.pending));
-    set('releasedPayout', formatCurrency(data.released));
+    set('totalEarnings',  formatCurrency(data.total  || 0));
+    set('monthEarnings',  formatCurrency(data.month  || 0));
+    set('weekEarnings',   formatCurrency(data.week   || 0));
     set('totalDeliveries', data.deliveries ?? 0);
+
+    const chart  = data.chart || [];
+    const canvas = document.getElementById('earningsChart');
+    if (canvas) {
+        if (earningsPageChart) earningsPageChart.destroy();
+        earningsPageChart = new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: chart.map(d => d.label),
+                datasets: [{ label: 'Earnings (₱)', data: chart.map(d => d.value), backgroundColor: 'rgba(26,26,62,.15)', borderColor: '#1a1a3e', borderWidth: 2, borderRadius: 6 }]
+            },
+            options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '₱' + v } } } }
+        });
+    }
+
+    const tbody = document.getElementById('earningsHistory');
+    if (tbody) {
+        const history = data.history || [];
+        if (!history.length) {
+            tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">💰</div>No earnings yet.</div></td></tr>';
+        } else {
+            tbody.innerHTML = history.map(h => `
+                <tr>
+                    <td>${formatDate(h.created_at)}</td>
+                    <td>#${h.order_id}</td>
+                    <td>${formatCurrency(h.order_total)}</td>
+                    <td style="color:#28a745;font-weight:600">${formatCurrency(h.amount)}</td>
+                </tr>
+            `).join('');
+        }
+    }
 }

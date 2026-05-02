@@ -3,53 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luxe - Modern Luxury E-Commerce</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Grande Marketplace — Modern E-Commerce</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 
-    <!-- ── NAVBAR ─────────────────────────────────────────── -->
-    <nav class="navbar">
-        <div class="container">
-            <a href="/" class="navbar-logo" style="text-decoration:none">Luxe</a>
-
-            <div class="hamburger" id="hamburger">
-                <span></span><span></span><span></span>
-            </div>
-
-            <ul class="navbar-links" id="navLinks">
-                <li><a href="/">Home</a></li>
-                <li><a href="/buyer/market">Shop</a></li>
-                <li><a href="#categories">Categories</a></li>
-                {% if session.user %}
-                <li><a href="/buyer/orders">My Orders</a></li>
-                {% endif %}
-            </ul>
-
-            <div class="navbar-actions">
-                <!-- Search -->
-                <div class="navbar-search" id="navSearchWrap">
-                    <input type="text" id="navSearch" placeholder="Search products..." onkeydown="if(event.key==='Enter') navDoSearch()">
-                    <button onclick="navDoSearch()" class="navbar-action-btn" style="font-size:16px">🔍</button>
-                </div>
-
-                {% if session.user %}
-                    <a href="/buyer/wishlist" class="navbar-action-btn" title="Wishlist">❤️</a>
-                    <a href="/buyer/cart" class="navbar-action-btn" title="Cart" style="position:relative">
-                        🛒<span class="badge" id="cartBadge" style="display:none">0</span>
-                    </a>
-                    <a href="/buyer/profile" class="navbar-action-btn" title="Profile" style="font-size:13px;font-weight:600;width:auto;padding:0 12px;text-decoration:none">
-                        👤 {{ session.user.name.split()[0] }}
-                    </a>
-                    <a href="/logout" class="navbar-action-btn" style="font-size:12px;color:#FF2BAC;width:auto;padding:0 10px;text-decoration:none">Logout</a>
-                {% else %}
-                    <a href="/login"    class="navbar-action-btn" style="font-size:13px;font-weight:600;width:auto;padding:0 12px;text-decoration:none">Login</a>
-                    <a href="/register" class="btn btn-primary"   style="font-size:13px;padding:8px 16px;text-decoration:none">Register</a>
-                {% endif %}
-            </div>
-        </div>
-    </nav>
+{% from 'buyer/_navbar.html' import grande_navbar %}
+{{ grande_navbar(user=session.get('user'), active='home') }}
 
     <!-- ── HERO CAROUSEL ──────────────────────────────────── -->
     <section class="hero-carousel" id="home">
@@ -158,7 +120,7 @@
         <div class="container">
             <div class="footer-content">
                 <div class="footer-column">
-                    <h4>Luxe</h4>
+                    <h4>Grande</h4>
                     <ul>
                         <li><a href="#">Our Story</a></li>
                         <li><a href="#">Careers</a></li>
@@ -213,7 +175,7 @@
                     <div class="payment-icon">GCash</div>
                     <div class="payment-icon">COD</div>
                 </div>
-                <div class="copyright">&copy; 2026 Luxe. All rights reserved.</div>
+                <div class="copyright">&copy; 2026 Grande Marketplace. All rights reserved.</div>
             </div>
         </div>
     </footer>

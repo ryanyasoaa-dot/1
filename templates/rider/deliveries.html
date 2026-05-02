@@ -7,6 +7,65 @@
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/rider.css') }}">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        .delivery-map-container {
+            background: #fff; border: 1px solid #e8e8f0;
+            border-radius: 14px; margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .map-header {
+            padding: 16px 20px; border-bottom: 1px solid #e8e8f0;
+            background: #f8f9fa;
+        }
+        .map-header h3 {
+            margin: 0; font-size: 16px; font-weight: 600;
+            color: #1a1a3e;
+        }
+        .delivery-map {
+            height: 400px; width: 100%;
+        }
+        .location-info {
+            padding: 16px 20px; display: grid;
+            grid-template-columns: 1fr 1fr; gap: 20px;
+        }
+        .location-card {
+            padding: 12px; border: 1px solid #e8e8f0;
+            border-radius: 8px; background: #fff;
+        }
+        .location-card h4 {
+            margin: 0 0 8px 0; font-size: 14px;
+            font-weight: 600; display: flex;
+            align-items: center; gap: 8px;
+        }
+        .location-card p {
+            margin: 0; font-size: 13px; color: #6c757d;
+            line-height: 1.4;
+        }
+        .pickup-marker { color: #007bff; }
+        .delivery-marker { color: #dc3545; }
+        .route-info {
+            padding: 12px 20px; background: #f8f9fa;
+            border-top: 1px solid #e8e8f0;
+            display: flex; justify-content: space-between;
+            align-items: center; font-size: 13px;
+        }
+        .route-distance { font-weight: 600; color: #1a1a3e; }
+        .map-toggle {
+            background: #007bff; color: white; border: none;
+            padding: 6px 12px; border-radius: 6px; font-size: 12px;
+            cursor: pointer; margin-left: 8px;
+        }
+        .map-toggle:hover { background: #0056b3; }
+        @media (max-width: 768px) {
+            .location-info {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            .delivery-map { height: 300px; }
+        }
+    </style>
 </head>
 <body>
 
@@ -36,6 +95,28 @@
         <div class="topbar-right">Rider Panel</div>
     </div>
     <div class="content">
+        <!-- Map Container -->
+        <div class="delivery-map-container" id="mapContainer" style="display: none;">
+            <div class="map-header">
+                <h3 id="mapTitle">Delivery Route</h3>
+            </div>
+            <div class="delivery-map" id="deliveryMap"></div>
+            <div class="location-info">
+                <div class="location-card">
+                    <h4><span class="pickup-marker">📍</span> Pickup Location</h4>
+                    <p id="pickupAddress">Select a delivery to view pickup location</p>
+                </div>
+                <div class="location-card">
+                    <h4><span class="delivery-marker">🎯</span> Delivery Location</h4>
+                    <p id="deliveryAddress">Select a delivery to view delivery location</p>
+                </div>
+            </div>
+            <div class="route-info">
+                <span>Route Information</span>
+                <span class="route-distance" id="routeDistance">Distance: --</span>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header"><h2>My Deliveries</h2></div>
             <div class="filter-tabs" style="padding:12px 16px;border-bottom:1px solid var(--border)">
@@ -53,6 +134,8 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
 <script src="{{ url_for('static', filename='js/rider.js') }}"></script>
 </body>

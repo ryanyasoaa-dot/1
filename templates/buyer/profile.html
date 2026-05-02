@@ -3,45 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luxe — My Profile</title>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/buyer.css') }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Grande — My Profile</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
 </head>
 <body>
 
-<nav class="navbar">
-    <div class="container">
-        <a href="/" class="navbar-logo">Luxe</a>
-        <div class="navbar-actions">
-            <a href="/buyer" class="navbar-action-btn" title="Account">← Back</a>
-            <a href="/logout" class="navbar-action-btn" title="Logout" style="color:#FF2BAC">Logout</a>
+{% from 'buyer/_navbar.html' import grande_navbar %}
+{{ grande_navbar(user=session.get('user'), active='') }}
+
+<div class="container py-4">
+    <nav class="shop-breadcrumb">
+        <a href="/buyer/orders">My Account</a> / <span>Profile</span>
+    </nav>
+
+    <div class="row g-4">
+
+        <!-- Sidebar -->
+        <div class="col-12 col-md-3">
+            <div class="settings-card">
+                <div class="settings-nav d-flex flex-column gap-1">
+                    <a href="/buyer/profile"  class="nav-link active"><span class="icon">👤</span> My Profile</a>
+                    <a href="/buyer/orders"   class="nav-link"><span class="icon">📦</span> My Orders</a>
+                    <a href="/buyer/settings" class="nav-link"><span class="icon">⚙️</span> Settings</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile content -->
+        <div class="col-12 col-md-9">
+
+            <!-- Avatar + name banner -->
+            <div class="settings-card mb-3 d-flex align-items-center gap-4 flex-wrap">
+                <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#FF2BAC,#FF9ED6);
+                            display:flex;align-items:center;justify-content:center;
+                            font-size:32px;flex-shrink:0;color:#fff;font-weight:700">
+                    {{ (session.user.first_name or session.user.name or 'U')[0]|upper }}
+                </div>
+                <div>
+                    <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#1a1a3e">
+                        {{ session.user.first_name }} {{ session.user.last_name or '' }}
+                    </div>
+                    <div style="font-size:13px;color:#6c757d">{{ session.user.email }}</div>
+                    <span style="display:inline-block;margin-top:6px;padding:2px 10px;border-radius:20px;
+                                 background:#fff0f8;color:#FF2BAC;font-size:11px;font-weight:700;text-transform:capitalize">
+                        {{ session.user.role }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Info cards -->
+            <div class="row g-3">
+
+                <div class="col-12">
+                    <div class="settings-card">
+                        <h5>👤 Personal Information</h5>
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <div class="form-label-custom">First Name</div>
+                                <div style="font-size:14px;font-weight:500;color:#1a1a3e;padding:10px 14px;background:#f8f9fa;border-radius:8px">
+                                    {{ profile.first_name or session.user.first_name or '—' }}
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="form-label-custom">Last Name</div>
+                                <div style="font-size:14px;font-weight:500;color:#1a1a3e;padding:10px 14px;background:#f8f9fa;border-radius:8px">
+                                    {{ profile.last_name or session.user.last_name or '—' }}
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="form-label-custom">Email</div>
+                                <div style="font-size:14px;font-weight:500;color:#1a1a3e;padding:10px 14px;background:#f8f9fa;border-radius:8px">
+                                    {{ profile.email or session.user.email or '—' }}
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="form-label-custom">Phone</div>
+                                <div style="font-size:14px;font-weight:500;color:#1a1a3e;padding:10px 14px;background:#f8f9fa;border-radius:8px">
+                                    {{ profile.phone or '—' }}
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="form-label-custom">Role</div>
+                                <div style="font-size:14px;font-weight:500;color:#1a1a3e;padding:10px 14px;background:#f8f9fa;border-radius:8px;text-transform:capitalize">
+                                    {{ profile.role or session.user.role or '—' }}
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="form-label-custom">Member Since</div>
+                                <div style="font-size:14px;font-weight:500;color:#1a1a3e;padding:10px 14px;background:#f8f9fa;border-radius:8px">
+                                    {{ profile.created_at[:10] if profile.created_at else '—' }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <a href="/buyer/settings" class="btn-pink px-4 py-2" style="font-size:13px">✏️ Edit Profile</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Saved addresses -->
+                <div class="col-12">
+                    <div class="settings-card">
+                        <h5>📍 Saved Addresses</h5>
+                        {% if addresses %}
+                            {% for a in addresses %}
+                            <div class="address-card mb-2">
+                                {% if a.is_default %}
+                                <span class="default-badge">Default</span>
+                                {% endif %}
+                                <div style="font-size:14px;font-weight:600">{{ a.label or 'Home' }}</div>
+                                <div style="font-size:13px;color:#6c757d">
+                                    {{ [a.street, a.barangay, a.city, a.region, a.zip_code] | select | join(', ') }}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div style="font-size:13px;color:#6c757d;padding:12px 0">
+                                No saved addresses yet.
+                                <a href="/buyer/address_book" style="color:#FF2BAC">Add one →</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
         </div>
     </div>
-</nav>
+</div>
 
-<section class="buyer-section">
-    <div class="container" style="max-width:560px">
-        <h2 style="font-family:var(--font-display);font-size:var(--font-size-3xl);margin-bottom:24px">My Profile</h2>
-        <div class="buyer-card">
-            <div style="margin-bottom:20px">
-                <span class="profile-label">Full Name</span>
-                <span class="profile-value">{{ session.user.name }}</span>
-            </div>
-            <div style="margin-bottom:20px">
-                <span class="profile-label">Email</span>
-                <span class="profile-value">{{ session.user.email }}</span>
-            </div>
-            <div style="margin-bottom:20px">
-                <span class="profile-label">Role</span>
-                <span class="profile-value" style="text-transform:capitalize">{{ session.user.role }}</span>
-            </div>
-            <a href="/logout" class="btn-logout">Logout</a>
-        </div>
-    </div>
-</section>
-
+<div class="shop-toast" id="shopToast"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
-<script src="{{ url_for('static', filename='js/buyer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/shop.js') }}"></script>
 </body>
 </html>

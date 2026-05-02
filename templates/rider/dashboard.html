@@ -5,8 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Luxe Rider — Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/rider.css') }}">
+    <style>
+        .earnings-banner { background:linear-gradient(135deg,#1a1a3e,#2d2d6e); color:#fff; border-radius:14px; padding:24px; margin-bottom:20px; }
+        .earnings-banner .big { font-size:36px; font-weight:700; }
+        .earnings-banner .sub { font-size:12px; opacity:.7; }
+        .chart-container { background:#fff; border-radius:14px; padding:20px; box-shadow:0 2px 12px rgba(0,0,0,.08); margin-bottom:20px; }
+        .chart-title { font-size:16px; font-weight:600; color:#1a1a3e; margin-bottom:16px; }
+        @media(max-width:768px){ .stats{ grid-template-columns:repeat(2,1fr); } }
+    </style>
 </head>
 <body>
 
@@ -23,6 +32,8 @@
         <li><a href="/rider/earnings"><span class="icon">💰</span> Earnings</a></li>
         <li class="menu-group">ACCOUNT</li>
         <li><a href="/rider/profile"><span class="icon">👤</span> Profile</a></li>
+        <li class="menu-group">SUPPORT</li>
+        <li><a href="/messages/"><span class="icon">💬</span> Messages</a></li>
     </ul>
     <div class="sidebar-footer">
         <div class="sidebar-user">🏍️ {{ session.user.name }}</div>
@@ -37,28 +48,58 @@
     </div>
     <div class="content">
 
+        <!-- Stats Cards -->
         <div class="stats">
-            <div class="stat-card"><div class="stat-label">Deliveries</div><div class="stat-value">0</div><div class="stat-icon">🚚</div></div>
-            <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value">0</div><div class="stat-icon">✅</div></div>
-            <div class="stat-card"><div class="stat-label">Earnings</div><div class="stat-value">₱0</div><div class="stat-icon">💰</div></div>
-            <div class="stat-card"><div class="stat-label">Rating</div><div class="stat-value">—</div><div class="stat-icon">⭐</div></div>
+            <div class="stat-card"><div class="stat-label">Total Deliveries</div><div class="stat-value" id="statTotal">0</div><div class="stat-icon">🚚</div></div>
+            <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value" id="statCompleted">0</div><div class="stat-icon">✅</div></div>
+            <div class="stat-card"><div class="stat-label">Active</div><div class="stat-value" id="statActive">0</div><div class="stat-icon">🔄</div></div>
+            <div class="stat-card"><div class="stat-label">Total Earnings</div><div class="stat-value" id="statEarnings">₱0.00</div><div class="stat-icon">💰</div></div>
         </div>
 
+        <!-- Earnings Banner -->
+        <div class="earnings-banner">
+            <div class="row align-items-center">
+                <div class="col-md-5">
+                    <div class="sub">Total Earnings</div>
+                    <div class="big" id="earningsBig">₱0.00</div>
+                    <div style="font-size:12px;opacity:.7;margin-top:4px" id="rateLabel">₱50 per delivery</div>
+                </div>
+                <div class="col-md-7 mt-3 mt-md-0">
+                    <div class="row g-2 text-center">
+                        <div class="col-4"><div style="font-size:11px;opacity:.7">Today</div><div style="font-size:20px;font-weight:700" id="earningsToday">₱0</div></div>
+                        <div class="col-4"><div style="font-size:11px;opacity:.7">This Week</div><div style="font-size:20px;font-weight:700" id="earningsWeek">₱0</div></div>
+                        <div class="col-4"><div style="font-size:11px;opacity:.7">This Month</div><div style="font-size:20px;font-weight:700" id="earningsMonth">₱0</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Earnings Chart -->
+        <div class="chart-container">
+            <div class="chart-title">Daily Earnings — Last 7 Days</div>
+            <canvas id="riderEarningsChart" height="160"></canvas>
+        </div>
+
+        <!-- Recent Deliveries -->
         <div class="card">
             <div class="card-header">
                 <h2>Recent Deliveries</h2>
                 <a href="/rider/deliveries" class="btn btn-view">View All</a>
             </div>
-            <table>
-                <thead><tr><th>Order ID</th><th>Customer</th><th>Address</th><th>Store</th><th>Status</th><th>Actions</th></tr></thead>
-                <tbody id="deliveriesTable"></tbody>
-            </table>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead><tr><th>Order ID</th><th>Customer</th><th>Address</th><th>Earned</th><th>Status</th></tr></thead>
+                    <tbody id="riderRecentDeliveries"></tbody>
+                </table>
+            </div>
         </div>
 
     </div>
 </div>
 
 <div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
 <script src="{{ url_for('static', filename='js/rider.js') }}"></script>
 </body>

@@ -62,38 +62,186 @@ async function updateStatus(id, status, notes = '') {
 }
 
 // ── Dashboard ─────────────────────────────────────────────────
+let adminSalesChart  = null;
+let adminStatusChart = null;
+let _commissionRate  = 5;
+
 async function loadDashboard() {
-    const data = await API.applications.getAll();
-    const set  = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    // Load summary + commission in parallel
+    const [summary, earnings] = await Promise.all([
+        API.admin.getDashboard().catch(() => ({})),
+        API.admin.getEarnings().catch(() => ({}))
+    ]);
 
-    set('stat-users',    data.length);
-    set('stat-pending',  data.filter(a => a.status === 'pending').length);
-    set('stat-approved', data.filter(a => a.status === 'approved').length);
-    set('stat-sellers',  data.filter(a => a.role === 'seller' && a.status === 'approved').length);
-    set('stat-riders',   data.filter(a => a.role === 'rider'  && a.status === 'approved').length);
-    set('stat-buyers',   data.filter(a => a.role === 'buyer'  && a.status === 'approved').length);
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    set('statUsers',      summary.total_users      ?? '—');
+    set('statSellers',    summary.total_sellers    ?? '—');
+    set('statRiders',     summary.total_riders     ?? '—');
+    set('statOrders',     summary.total_orders     ?? '—');
+    set('statRevenue',    formatCurrency(summary.total_revenue    || 0));
+    set('statCommission', formatCurrency(summary.admin_commission || 0));
 
-    const tbody   = document.getElementById('recentApps');
-    const pending = data.filter(a => a.status === 'pending').slice(0, 5);
+    // Commission banner
+    _commissionRate = summary.commission_rate || 5;
+    set('commissionTotal', formatCurrency(earnings.total_commission || 0));
+    set('commissionToday', formatCurrency(earnings.today_commission || 0));
+    set('commissionWeek',  formatCurrency(earnings.week_commission  || 0));
+    set('commissionMonth', formatCurrency(earnings.month_commission || 0));
+    const badge = document.getElementById('commissionRateBadge');
+    if (badge) badge.textContent = `Rate: ${_commissionRate}%`;
 
-    if (!pending.length) {
-        tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">✅</div>No pending applications.</div></td></tr>`;
+    // Pre-fill rate inputs
+    const rateInput = document.getElementById('commissionRateInput');
+    if (rateInput) rateInput.value = _commissionRate;
+
+    // Load commission settings for rider rate
+    const cfg = await API.admin.getCommission().catch(() => ({}));
+    const riderInput = document.getElementById('riderRateInput');
+    if (riderInput) riderInput.value = cfg.rider_rate || 50;
+
+    // Charts
+    loadAdminSalesChart('daily');
+    loadAdminStatusChart(summary.status_breakdown || {});
+
+    // Recent orders
+    loadAdminRecentOrders();
+
+    // Pending applications
+    const apps = await API.applications.getAll().catch(() => []);
+    const pending = apps.filter(a => a.status === 'pending').slice(0, 5);
+    const tbody = document.getElementById('recentApps');
+    if (tbody) {
+        if (!pending.length) {
+            tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">✅</div>No pending applications.</div></td></tr>`;
+        } else {
+            tbody.innerHTML = pending.map(a => `
+                <tr>
+                    <td>${a.full_name || '—'}</td>
+                    <td>${a.email    || '—'}</td>
+                    <td><span class="badge badge-${a.role}">${a.role}</span></td>
+                    <td>${formatDate(a.created_at)}</td>
+                    <td class="actions">
+                        <button class="btn btn-approve" onclick="updateStatus('${a.id}','approved')">Approve</button>
+                        <a href="/admin/applications" class="btn btn-view">Details</a>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    }
+}
+
+async function loadAdminSalesChart(period = 'daily') {
+    const res  = await API.admin.getSalesAnalytics(period).catch(() => ({ data: [] }));
+    const data = res.data || [];
+    const canvas = document.getElementById('adminSalesChart');
+    if (!canvas) return;
+    if (adminSalesChart) adminSalesChart.destroy();
+    adminSalesChart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: data.map(d => d.label),
+            datasets: [{
+                label: 'Revenue (₱)',
+                data:  data.map(d => d.value),
+                backgroundColor: 'rgba(26,26,62,.15)',
+                borderColor: '#1a1a3e',
+                borderWidth: 2,
+                borderRadius: 6,
+            }, {
+                label: 'Orders',
+                data:  data.map(d => d.orders),
+                type:  'line',
+                borderColor: '#FF2BAC',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                pointRadius: 4,
+                yAxisID: 'orders',
+            }]
+        },
+        options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { position: 'top' } },
+            scales: {
+                y:      { beginAtZero: true, ticks: { callback: v => '₱' + v.toLocaleString() } },
+                orders: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false } }
+            }
+        }
+    });
+}
+
+function loadAdminStatusChart(breakdown) {
+    const canvas = document.getElementById('adminStatusChart');
+    if (!canvas) return;
+    const labels = ['Pending', 'Processing', 'Ready', 'In Transit', 'Delivered'];
+    const keys   = ['pending', 'processing', 'ready_for_pickup', 'in_transit', 'delivered'];
+    const colors = ['#ffc107', '#17a2b8', '#fd7e14', '#6f42c1', '#28a745'];
+    const values = keys.map(k => breakdown[k] || 0);
+    if (adminStatusChart) adminStatusChart.destroy();
+    adminStatusChart = new Chart(canvas, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2 }] },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+    const legend = document.getElementById('statusLegend');
+    if (legend) {
+        legend.innerHTML = labels.map((l, i) => `
+            <span style="margin-right:12px">
+                <span style="background:${colors[i]};width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:4px"></span>
+                ${l}: <strong>${values[i]}</strong>
+            </span>
+        `).join('');
+    }
+}
+
+function changeAdminPeriod(period, btn) {
+    document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadAdminSalesChart(period);
+}
+
+async function loadAdminRecentOrders() {
+    const tbody = document.getElementById('adminRecentOrders');
+    if (!tbody) return;
+    const data = await API.admin.getRecentOrders(10).catch(() => []);
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🛒</div>No orders yet.</div></td></tr>';
         return;
     }
-
-    tbody.innerHTML = pending.map(a => `
+    tbody.innerHTML = data.map(o => {
+        const commission = (parseFloat(o.total_amount) * _commissionRate / 100).toFixed(2);
+        return `
         <tr>
-            <td>${a.full_name || '—'}</td>
-            <td>${a.email    || '—'}</td>
-            <td><span class="badge badge-${a.role}">${a.role}</span></td>
-            <td>${formatDate(a.created_at)}</td>
-            <td class="actions">
-                <button class="btn btn-approve" onclick="updateStatus('${a.id}','approved')">Approve</button>
-                <a href="/admin/applications" class="btn btn-view">Details</a>
-            </td>
-        </tr>
-    `).join('');
+            <td>#${o.short_id}</td>
+            <td>${o.buyer_name}</td>
+            <td>${o.rider_name}</td>
+            <td>${formatCurrency(o.total_amount)}</td>
+            <td style="color:#28a745;font-weight:600">${o.status === 'delivered' ? formatCurrency(commission) : '—'}</td>
+            <td><span class="badge badge-${o.status}">${o.status}</span></td>
+            <td>${formatDate(o.created_at)}</td>
+        </tr>`;
+    }).join('');
 }
+
+async function saveCommissionRates() {
+    const rate  = parseFloat(document.getElementById('commissionRateInput')?.value || 5);
+    const rider = parseFloat(document.getElementById('riderRateInput')?.value || 50);
+    if (rate < 1 || rate > 30) { showToast('Commission rate must be 1–30%.', true); return; }
+    if (rider < 1)             { showToast('Rider rate must be at least ₱1.', true); return; }
+    const res = await API.admin.setCommission({ commission_rate: rate, rider_rate: rider }).catch(() => ({ error: 'Network error.' }));
+    if (res.success) {
+        showToast('Rates saved successfully.');
+        loadDashboard();
+    } else {
+        showToast(res.error || 'Failed to save rates.', true);
+    }
+}
+
+function formatCurrency(amount) {
+    return '₱' + Number(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
+}
+
+
 
 // ── Applications ──────────────────────────────────────────────
 let allApplications = [];

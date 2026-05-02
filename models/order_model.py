@@ -62,17 +62,28 @@ class OrderModel:
         return orders
     
     def create(self, order_data, items_data):
-        """Create a new order with items"""
+        """Create a new order with items and reserve stock"""
         try:
+            # Validate stock availability before creating order
+            for item_data in items_data:
+                product_id = item_data['product_id']
+                variant_id = item_data.get('variant_id')
+                quantity = int(item_data['quantity'])
+                
+                if not self._check_stock_availability(product_id, variant_id, quantity):
+                    raise Exception(f"Insufficient stock for product {product_id}")
+            
             # Create order
             order_result = self.supabase.table('orders').insert(order_data).execute()
             order = order_result.data[0]
             
-            # Create order items
+            # Create order items and reserve stock
             order_id = order['id']
             for item_data in items_data:
                 item_data['order_id'] = order_id
                 self.supabase.table('order_items').insert(item_data).execute()
+                # Reserve stock (reduce available but don't deduct from total yet)
+                self._reserve_stock(item_data['product_id'], item_data.get('variant_id'), int(item_data['quantity']))
             
             return order
         except Exception as e:
@@ -140,7 +151,8 @@ class OrderModel:
         return result.data[0] if result.data else None
 
     def update_status_for_rider(self, order_id, rider_id, new_status):
-        """Rider can move in_transit -> delivered only"""
+        """Rider can move in_transit -> delivered only.
+        On delivery: finalize stock deduction and count sales."""
         if new_status != 'delivered':
             return None
         current = self.supabase.table('orders').select('status, rider_id').eq('id', order_id).eq('rider_id', rider_id).limit(1).execute()
@@ -149,7 +161,173 @@ class OrderModel:
         if current.data[0].get('status') != 'in_transit':
             return None
         result = self.supabase.table('orders').update({'status': 'delivered'}).eq('id', order_id).eq('rider_id', rider_id).execute()
+        if not result.data:
+            return None
+        # Finalize stock deduction and count sales only on delivery
+        self._finalize_delivery(order_id)
+        return result.data[0]
+
+    def _check_stock_availability(self, product_id, variant_id, quantity):
+        """Check if sufficient stock is available for purchase"""
+        if variant_id:
+            # Check variant stock
+            variant = self.supabase.table('product_variants').select('stock').eq('id', variant_id).limit(1).execute()
+            if not variant.data:
+                return False
+            available = int(variant.data[0].get('stock', 0))
+        else:
+            # Check product total stock
+            product = self.supabase.table('products').select('total_stock').eq('id', product_id).limit(1).execute()
+            if not product.data:
+                return False
+            available = int(product.data[0].get('total_stock', 0))
+        
+        return available >= quantity
+    
+    def _reserve_stock(self, product_id, variant_id, quantity):
+        """Reserve stock when order is created (reduce available stock temporarily)"""
+        # Note: In a production system, you might want to add a reserved_stock column
+        # For now, we'll deduct from available stock immediately but track it for potential restoration
+        if variant_id:
+            # Reserve variant stock
+            variant = self.supabase.table('product_variants').select('stock').eq('id', variant_id).limit(1).execute()
+            if variant.data:
+                new_stock = max(0, int(variant.data[0].get('stock', 0)) - quantity)
+                self.supabase.table('product_variants').update({'stock': new_stock}).eq('id', variant_id).execute()
+        
+        # Always reserve from total_stock on the product
+        product = self.supabase.table('products').select('total_stock').eq('id', product_id).limit(1).execute()
+        if product.data:
+            new_total = max(0, int(product.data[0].get('total_stock', 0)) - quantity)
+            self.supabase.table('products').update({'total_stock': new_total}).eq('id', product_id).execute()
+    
+    def _finalize_delivery(self, order_id):
+        """On delivery: record rider earnings and admin commission."""
+        try:
+            order = self.supabase.table('orders').select('rider_id, total_amount').eq('id', order_id).limit(1).execute()
+            if not order.data:
+                return
+            rider_id    = order.data[0].get('rider_id')
+            total       = float(order.data[0].get('total_amount') or 0)
+
+            # Fetch configurable rates
+            settings = self.supabase.table('admin_settings').select('key, value').in_('key', ['rider_rate']).execute()
+            rates = {r['key']: r['value'] for r in (settings.data or [])}
+            rider_rate = float(rates.get('rider_rate', 50))
+
+            # Record rider earnings (fixed rate per delivery)
+            if rider_id:
+                self.supabase.table('rider_earnings').upsert({
+                    'rider_id': rider_id,
+                    'order_id': order_id,
+                    'amount':   rider_rate
+                }, on_conflict='rider_id,order_id').execute()
+        except Exception as e:
+            print(f"_finalize_delivery error: {e}")
+    
+    def cancel_order(self, order_id, user_id=None, is_admin=False):
+        """Cancel an order and restore reserved stock"""
+        # Get order details
+        order = self.supabase.table('orders').select('status, buyer_id').eq('id', order_id).limit(1).execute()
+        if not order.data:
+            return None
+        
+        order_data = order.data[0]
+        
+        # Check permissions
+        if not is_admin and order_data.get('buyer_id') != user_id:
+            return None
+        
+        # Only allow cancellation of pending/processing orders
+        if order_data.get('status') not in ['pending', 'processing']:
+            return None
+        
+        # Restore stock for cancelled order
+        items = self.supabase.table('order_items').select('product_id, variant_id, quantity').eq('order_id', order_id).execute()
+        for item in (items.data or []):
+            qty = int(item.get('quantity', 0))
+            variant_id = item.get('variant_id')
+            product_id = item.get('product_id')
+            
+            if variant_id:
+                # Restore variant stock
+                variant = self.supabase.table('product_variants').select('stock').eq('id', variant_id).limit(1).execute()
+                if variant.data:
+                    new_stock = int(variant.data[0].get('stock', 0)) + qty
+                    self.supabase.table('product_variants').update({'stock': new_stock}).eq('id', variant_id).execute()
+            
+            # Restore product total stock
+            product = self.supabase.table('products').select('total_stock').eq('id', product_id).limit(1).execute()
+            if product.data:
+                new_total = int(product.data[0].get('total_stock', 0)) + qty
+                self.supabase.table('products').update({'total_stock': new_total}).eq('id', product_id).execute()
+        
+        # Update order status to cancelled (we need to add this status to schema)
+        result = self.supabase.table('orders').update({'status': 'cancelled'}).eq('id', order_id).execute()
         return result.data[0] if result.data else None
+
+    def get_seller_stats(self, seller_id):
+        """Return delivered-only sales stats for a seller."""
+        product_result = self.supabase.table('products').select('id').eq('seller_id', seller_id).execute()
+        product_ids = [p['id'] for p in (product_result.data or [])]
+        if not product_ids:
+            return {'total_orders': 0, 'items_sold': 0, 'total_revenue': 0.0,
+                    'today_revenue': 0.0, 'week_revenue': 0.0, 'month_revenue': 0.0}
+
+        # Get delivered order items for this seller's products
+        items_result = self.supabase.table('order_items').select(
+            'quantity, total_price, order:orders(status, created_at)'
+        ).in_('product_id', product_ids).execute()
+
+        from datetime import datetime, timezone, timedelta
+        now   = datetime.now(timezone.utc)
+        today = now.date()
+        week_start  = today - timedelta(days=today.weekday())
+        month_start = today.replace(day=1)
+
+        total_orders_set = set()
+        items_sold = 0
+        total_revenue = 0.0
+        today_revenue = 0.0
+        week_revenue  = 0.0
+        month_revenue = 0.0
+
+        for item in (items_result.data or []):
+            order = item.get('order') or {}
+            if order.get('status') != 'delivered':
+                continue
+            qty   = int(item.get('quantity') or 0)
+            price = float(item.get('total_price') or 0)
+            items_sold    += qty
+            total_revenue += price
+
+            created_raw = order.get('created_at', '')
+            try:
+                created = datetime.fromisoformat(created_raw.replace('Z', '+00:00')).date()
+            except Exception:
+                continue
+
+            if created == today:
+                today_revenue += price
+            if created >= week_start:
+                week_revenue  += price
+            if created >= month_start:
+                month_revenue += price
+
+        # Count distinct delivered orders containing seller products
+        orders_result = self.supabase.table('order_items').select('order_id, order:orders(status)').in_('product_id', product_ids).execute()
+        for item in (orders_result.data or []):
+            if (item.get('order') or {}).get('status') == 'delivered':
+                total_orders_set.add(item.get('order_id'))
+
+        return {
+            'total_orders':  len(total_orders_set),
+            'items_sold':    items_sold,
+            'total_revenue': total_revenue,
+            'today_revenue': today_revenue,
+            'week_revenue':  week_revenue,
+            'month_revenue': month_revenue,
+        }
     
     def get_all(self):
         """Get all orders (admin view)"""

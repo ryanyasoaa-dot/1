@@ -3,108 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luxe — Settings</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Grande — Settings</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
 </head>
 <body>
 
-<nav class="shop-navbar">
-    <div class="container d-flex align-items-center justify-content-between">
-        <a href="/" class="navbar-brand">Luxe</a>
-        <a href="/buyer" class="nav-icon-btn">👤</a>
-    </div>
-</nav>
+{% from 'buyer/_navbar.html' import grande_navbar %}
+{{ grande_navbar(user=session.get('user'), active='') }}
 
 <div class="container py-4">
     <nav class="shop-breadcrumb">
-        <a href="/buyer">My Account</a> / <span>Settings</span>
+        <a href="/buyer/settings">Settings</a> / <span id="breadcrumbSub">Account</span>
     </nav>
 
     <div class="row g-4">
 
-        <!-- Sidebar nav -->
+        <!-- ── Sidebar ── -->
         <div class="col-12 col-md-3">
-            <div class="settings-card">
+            <div class="settings-card mb-3">
+                <div style="font-size:10px;font-weight:700;color:#adb5bd;text-transform:uppercase;letter-spacing:.8px;padding:0 4px 8px">Account</div>
                 <div class="settings-nav d-flex flex-column gap-1">
-                    <a href="/buyer" class="nav-link"><span class="icon">🏠</span> Dashboard</a>
-                    <a href="/buyer/orders" class="nav-link"><span class="icon">📦</span> My Orders</a>
-                    <a href="/buyer/wishlist" class="nav-link"><span class="icon">❤️</span> Wishlist</a>
+                    <a href="/buyer/orders"       class="nav-link"><span class="icon">📦</span> My Orders</a>
                     <a href="/buyer/address_book" class="nav-link"><span class="icon">📍</span> Addresses</a>
-                    <a href="/buyer/settings" class="nav-link active"><span class="icon">⚙️</span> Settings</a>
-                    <a href="/logout" class="nav-link" style="color:#ef4444"><span class="icon">🚪</span> Logout</a>
                 </div>
             </div>
-
-            <!-- Settings sub-nav -->
-            <div class="settings-card mt-3">
+            <div class="settings-card">
+                <div style="font-size:10px;font-weight:700;color:#adb5bd;text-transform:uppercase;letter-spacing:.8px;padding:0 4px 8px">Settings</div>
                 <div class="settings-nav d-flex flex-column gap-1">
-                    <a href="#" class="nav-link active" data-section="sectionProfile"><span class="icon">👤</span> Profile</a>
-                    <a href="#" class="nav-link" data-section="sectionPassword"><span class="icon">🔑</span> Password</a>
-                    <a href="#" class="nav-link" data-section="sectionNotifications"><span class="icon">🔔</span> Notifications</a>
-                    <a href="#" class="nav-link" data-section="sectionSecurity"><span class="icon">🛡️</span> Security</a>
+                    <a href="#" class="nav-link active" data-section="sectionAccount"  onclick="switchSection(this)"><span class="icon">👤</span> Profile</a>
+                    <a href="#" class="nav-link"        data-section="sectionPassword" onclick="switchSection(this)"><span class="icon">🔑</span> Password</a>
+                    <a href="#" class="nav-link"        data-section="sectionNotif"    onclick="switchSection(this)"><span class="icon">🔔</span> Notifications</a>
+                    <a href="#" class="nav-link"        data-section="sectionSecurity" onclick="switchSection(this)"><span class="icon">🛡️</span> Security</a>
                 </div>
             </div>
         </div>
 
-        <!-- Settings content -->
+        <!-- ── Main content ── -->
         <div class="col-12 col-md-9">
 
-            <!-- Profile -->
-            <div class="settings-section active" id="sectionProfile">
+            <!-- ── Account / Profile ── -->
+            <div class="settings-section active" id="sectionAccount">
+
+                <!-- Info banner -->
+                <div class="settings-card mb-3 d-flex align-items-center gap-4 flex-wrap">
+                    <div style="width:72px;height:72px;border-radius:50%;flex-shrink:0;
+                                background:linear-gradient(135deg,#FF2BAC,#FF9ED6);
+                                display:flex;align-items:center;justify-content:center;
+                                font-size:28px;font-weight:700;color:#fff">
+                        {{ (session.user.first_name or session.user.name or 'U')[0]|upper }}
+                    </div>
+                    <div style="flex:1;min-width:0">
+                        <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#1a1a3e">
+                            {{ session.user.first_name }} {{ session.user.last_name or '' }}
+                        </div>
+                        <div style="font-size:13px;color:#6c757d">{{ session.user.email }}</div>
+                    </div>
+                </div>
+
+                <!-- Edit form -->
                 <div class="settings-card">
-                    <h5>👤 Edit Profile</h5>
-                    <form id="profileForm" onsubmit="saveProfile(event)" enctype="multipart/form-data">
+                    <h5>✏️ Edit Profile</h5>
+                    <form id="profileForm" onsubmit="saveProfile(event)">
                         <div class="row g-3">
-                            <div class="col-md-4">
-                                <div class="text-center mb-3">
-                                    <div class="profile-picture-container">
-                                        <img id="profilePreview" src="" alt="Profile Picture" class="profile-picture-img">
-                                        <div class="profile-picture-overlay">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="changePicBtn">
-                                                Change Picture
-                                            </button>
-                                            <input type="file" id="profilePictureInput" accept="image/*" style="display:none;">
-                                        </div>
-                                    </div>
-                                    <small class="text-muted">Recommended size: 200x200px</small>
-                                </div>
+                            <div class="col-sm-6">
+                                <label class="form-label-custom">Full Name</label>
+                                <input type="text" id="profileName" class="form-control-custom"
+                                       value="{{ session.user.first_name }} {{ session.user.last_name or '' }}"
+                                       placeholder="Your full name">
                             </div>
-                            <div class="col-md-8">
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label-custom">Full Name</label>
-                                        <input type="text" id="profileName" class="form-control-custom" value="{{ session.user.name }}" placeholder="Your full name">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label-custom">Email</label>
-                                        <input type="email" class="form-control-custom" value="{{ session.user.email }}" disabled style="opacity:0.6">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label-custom">Phone Number</label>
-                                        <input type="tel" id="profilePhone" class="form-control-custom" placeholder="+63 912 345 6789">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label-custom">Gender</label>
-                                        <select class="form-control-custom" id="profileGender">
-                                            <option value="">Select gender</option>
-                                            <option value="male">Male</option>
-                                            <option value="female">Female</option>
-                                            <option value="other">Other</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-12">
-                                    <button type="submit" class="btn-pink px-4 py-2">Save Changes</button>
-                                </div>
+                            <div class="col-sm-6">
+                                <label class="form-label-custom">Email</label>
+                                <input type="email" class="form-control-custom"
+                                       value="{{ session.user.email }}" disabled style="opacity:.6">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label-custom">Phone Number</label>
+                                <input type="tel" id="profilePhone" class="form-control-custom"
+                                       placeholder="+63 912 345 6789">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label-custom">Gender</label>
+                                <select class="form-control-custom" id="profileGender">
+                                    <option value="">Select gender</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            <div class="col-12 mt-1">
+                                <button type="submit" class="btn-pink px-4 py-2">Save Changes</button>
                             </div>
                         </div>
                     </form>
                 </div>
             </div>
 
-            <!-- Password -->
+            <!-- ── Password ── -->
             <div class="settings-section" id="sectionPassword">
                 <div class="settings-card">
                     <h5>🔑 Change Password</h5>
@@ -130,62 +127,38 @@
                 </div>
             </div>
 
-            <!-- Notifications -->
-            <div class="settings-section" id="sectionNotifications">
+            <!-- ── Notifications ── -->
+            <div class="settings-section" id="sectionNotif">
                 <div class="settings-card">
                     <h5>🔔 Notification Preferences</h5>
                     <div class="d-flex flex-column gap-3">
+                        {% set notif_items = [
+                            ('Order Updates',       'Get notified when your order status changes', true),
+                            ('Promotions & Deals',  'Receive exclusive offers and discounts',      true),
+                            ('New Arrivals',        'Be the first to know about new products',     false),
+                            ('Email Notifications', 'Receive notifications via email',             true)
+                        ] %}
+                        {% for label, desc, checked in notif_items %}
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <div style="font-size:14px;font-weight:600">Order Updates</div>
-                                <div style="font-size:12px;color:var(--gray)">Get notified when your order status changes</div>
+                                <div style="font-size:14px;font-weight:600">{{ label }}</div>
+                                <div style="font-size:12px;color:var(--gray)">{{ desc }}</div>
                             </div>
                             <label class="toggle-switch">
-                                <input type="checkbox" checked>
+                                <input type="checkbox" {{ 'checked' if checked else '' }}>
                                 <span class="toggle-slider"></span>
                             </label>
                         </div>
-                        <hr class="my-1">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div style="font-size:14px;font-weight:600">Promotions & Deals</div>
-                                <div style="font-size:12px;color:var(--gray)">Receive exclusive offers and discounts</div>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" checked>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                        <hr class="my-1">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div style="font-size:14px;font-weight:600">New Arrivals</div>
-                                <div style="font-size:12px;color:var(--gray)">Be the first to know about new products</div>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                        <hr class="my-1">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div style="font-size:14px;font-weight:600">Email Notifications</div>
-                                <div style="font-size:12px;color:var(--gray)">Receive notifications via email</div>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" checked>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                        <div class="mt-2">
+                        {% if not loop.last %}<hr class="my-1">{% endif %}
+                        {% endfor %}
+                        <div class="mt-1">
                             <button class="btn-pink px-4 py-2">Save Preferences</button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Security -->
+            <!-- ── Security ── -->
             <div class="settings-section" id="sectionSecurity">
                 <div class="settings-card">
                     <h5>🛡️ Security Settings</h5>
@@ -238,6 +211,71 @@
 <div class="shop-toast" id="shopToast"></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
-<script src="{{ url_for('static', filename='js/shop.js') }}"></script>
+<script>
+const CSRF = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+function showToast(msg, isError) {
+    const t = document.getElementById('shopToast');
+    if (!t) return;
+    t.textContent = msg;
+    t.style.background = isError ? '#c0392b' : '#1a1a3e';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+const sectionLabels = {
+    sectionAccount:  'Profile',
+    sectionPassword: 'Password',
+    sectionNotif:    'Notifications',
+    sectionSecurity: 'Security'
+};
+
+function switchSection(el) {
+    event.preventDefault();
+    document.querySelectorAll('.settings-nav .nav-link[data-section]').forEach(l => l.classList.remove('active'));
+    el.classList.add('active');
+    const target = el.dataset.section;
+    document.querySelectorAll('.settings-section').forEach(s => s.classList.remove('active'));
+    document.getElementById(target).classList.add('active');
+    document.getElementById('breadcrumbSub').textContent = sectionLabels[target] || 'Settings';
+    history.replaceState(null, '', '#' + target);
+}
+
+async function saveProfile(e) {
+    e.preventDefault();
+    const payload = {
+        full_name: document.getElementById('profileName')?.value.trim(),
+        phone:     document.getElementById('profilePhone')?.value.trim(),
+    };
+    const res = await fetch('/buyer/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF() },
+        body: JSON.stringify(payload)
+    }).then(r => r.json()).catch(() => ({ error: 'Network error.' }));
+    showToast(res.success ? 'Profile updated!' : (res.error || 'Failed.'), !res.success);
+}
+
+async function changePassword(e) {
+    e.preventDefault();
+    const current = document.getElementById('currentPw')?.value;
+    const newPw   = document.getElementById('newPw')?.value;
+    const confirm = document.getElementById('confirmPw')?.value;
+    if (newPw !== confirm) { showToast('Passwords do not match.', true); return; }
+    const res = await fetch('/buyer/api/password', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF() },
+        body: JSON.stringify({ current_password: current, new_password: newPw })
+    }).then(r => r.json()).catch(() => ({ error: 'Network error.' }));
+    showToast(res.success ? 'Password changed!' : (res.error || 'Failed.'), !res.success);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const hash = window.location.hash.replace('#', '');
+    if (hash && document.getElementById(hash)) {
+        const link = document.querySelector('[data-section="' + hash + '"]');
+        if (link) switchSection(link);
+    }
+});
+</script>
 </body>
 </html>

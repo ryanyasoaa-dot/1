@@ -3,44 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luxe — Address Book</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Grande — Address Book</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/psgc.css') }}">
 </head>
 <body>
 
-<nav class="shop-navbar">
-    <div class="container d-flex align-items-center justify-content-between">
-        <a href="/" class="navbar-brand">Luxe</a>
-        <a href="/buyer" class="nav-icon-btn">👤</a>
-    </div>
-</nav>
+{% from 'buyer/_navbar.html' import grande_navbar %}
+{{ grande_navbar(user=session.get('user'), active='') }}
 
 <div class="container py-4">
     <nav class="shop-breadcrumb">
-        <a href="/buyer">My Account</a> / <span>Address Book</span>
+        <a href="/buyer/settings">Settings</a> / <span>Addresses</span>
     </nav>
 
     <div class="row g-4">
+
+        <!-- Sidebar -->
         <div class="col-12 col-md-3">
-            <div class="settings-card">
+            <div class="settings-card mb-3">
+                <div style="font-size:10px;font-weight:700;color:#adb5bd;text-transform:uppercase;letter-spacing:.8px;padding:0 4px 8px">Account</div>
                 <div class="settings-nav d-flex flex-column gap-1">
-                    <a href="/buyer" class="nav-link"><span class="icon">🏠</span> Dashboard</a>
-                    <a href="/buyer/orders" class="nav-link"><span class="icon">📦</span> My Orders</a>
-                    <a href="/buyer/wishlist" class="nav-link"><span class="icon">❤️</span> Wishlist</a>
+                    <a href="/buyer/orders"       class="nav-link"><span class="icon">📦</span> My Orders</a>
                     <a href="/buyer/address_book" class="nav-link active"><span class="icon">📍</span> Addresses</a>
-                    <a href="/buyer/settings" class="nav-link"><span class="icon">⚙️</span> Settings</a>
-                    <a href="/logout" class="nav-link" style="color:#ef4444"><span class="icon">🚪</span> Logout</a>
+                </div>
+            </div>
+            <div class="settings-card">
+                <div style="font-size:10px;font-weight:700;color:#adb5bd;text-transform:uppercase;letter-spacing:.8px;padding:0 4px 8px">Settings</div>
+                <div class="settings-nav d-flex flex-column gap-1">
+                    <a href="/buyer/settings"                  class="nav-link"><span class="icon">👤</span> Profile</a>
+                    <a href="/buyer/settings#sectionPassword"  class="nav-link"><span class="icon">🔑</span> Password</a>
+                    <a href="/buyer/settings#sectionNotif"     class="nav-link"><span class="icon">🔔</span> Notifications</a>
+                    <a href="/buyer/settings#sectionSecurity"  class="nav-link"><span class="icon">🛡️</span> Security</a>
                 </div>
             </div>
         </div>
 
+        <!-- Main content -->
         <div class="col-12 col-md-9">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div class="section-title mb-0">Address Book 📍</div>
-                <button class="btn-pink px-3 py-2" data-bs-toggle="modal" data-bs-target="#addAddressModal">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div class="section-title mb-0">📍 Address Book</div>
+                <button class="btn-pink px-3 py-2" style="font-size:13px" data-bs-toggle="modal" data-bs-target="#addAddressModal">
                     + Add Address
                 </button>
             </div>
@@ -52,9 +59,9 @@
 <!-- Add Address Modal -->
 <div class="modal fade" id="addAddressModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header border-0">
-                <h5 class="modal-title" style="font-family:var(--font-display)">Add New Address</h5>
+        <div class="modal-content" style="border-radius:16px;border:none">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title" style="font-family:'Playfair Display',serif;font-size:18px">Add New Address</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -65,29 +72,56 @@
                             <input type="text" id="addrLabel" class="form-control-custom" placeholder="Home">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label-custom">Region</label>
-                            <input type="text" id="addrRegion" class="form-control-custom" placeholder="e.g. NCR">
+                            <label class="addr-label">Region</label>
+                            <div class="select-wrapper">
+                                <select id="addrRegion" class="addr-select" disabled>
+                                    <option value="">Loading regions...</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label-custom">City / Municipality</label>
-                            <input type="text" id="addrCity" class="form-control-custom" placeholder="e.g. Quezon City">
+                            <label class="addr-label">Province</label>
+                            <div class="select-wrapper">
+                                <select id="addrProvince" class="addr-select" disabled>
+                                    <option value="">Select Province</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label-custom">Barangay</label>
-                            <input type="text" id="addrBarangay" class="form-control-custom" placeholder="e.g. Brgy. Holy Spirit">
+                            <label class="addr-label">City / Municipality</label>
+                            <div class="select-wrapper">
+                                <select id="addrCity" class="addr-select" disabled>
+                                    <option value="">Select City/Municipality</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="col-md-6">
+                            <label class="addr-label">Barangay</label>
+                            <div class="select-wrapper">
+                                <select id="addrBarangay" class="addr-select" disabled>
+                                    <option value="">Select Barangay</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label-custom">Street / House No.</label>
+                            <input type="text" id="addrStreet" class="form-control-custom" placeholder="e.g. 123 Rizal St.">
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label-custom">ZIP Code</label>
                             <input type="text" id="addrZip" class="form-control-custom" placeholder="e.g. 1127">
                         </div>
                         <div class="col-12">
-                            <label class="form-label-custom">Street / House No.</label>
-                            <input type="text" id="addrStreet" class="form-control-custom" placeholder="e.g. 123 Rizal St.">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label-custom">Pin Location on Map</label>
-                            <div id="addressMap"></div>
-                            <div style="font-size:12px;color:var(--gray);margin-top:6px" id="addrCoordsDisplay">📍 Click map to pin your location</div>
+                            <label class="form-label-custom">Pin Location on Map <span style="color:#adb5bd;font-weight:400">(optional)</span></label>
+                            <button type="button" id="btnGeolocate" style="
+                                width:100%;padding:9px 14px;margin-bottom:8px;
+                                background:#fff0f8;border:1.5px solid #FF2BAC;border-radius:8px;
+                                color:#FF2BAC;font-size:13px;font-weight:600;cursor:pointer">
+                                📍 Use My Current Location
+                            </button>
+                            <div id="psgcMap"></div>
+                            <div class="map-instructions" id="mapInstructionText">Click the map to pin your exact location</div>
+                            <div class="pin-status unset" id="pinStatus">⚠ No pin set yet</div>
                             <input type="hidden" id="addrLatitude">
                             <input type="hidden" id="addrLongitude">
                         </div>
@@ -106,12 +140,130 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
-<script src="{{ url_for('static', filename='js/shop.js') }}"></script>
+<script src="{{ url_for('static', filename='js/psgc.js') }}"></script>
 <script>
-// Init map when modal opens
-document.getElementById('addAddressModal').addEventListener('shown.bs.modal', () => {
-    initAddressMap();
+const CSRF = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+async function updateCartBadge() {
+    const cart = await fetch('/buyer/api/cart').then(r => r.json()).catch(() => []);
+    const total = cart.reduce((s, i) => s + Number(i.quantity || 0), 0);
+    document.querySelectorAll('.cart-count').forEach(el => {
+        el.textContent = total;
+        el.style.display = total > 0 ? 'flex' : 'none';
+    });
+}
+
+function showToast(msg, isError) {
+    let t = document.getElementById('shopToast');
+    if (!t) return;
+    t.textContent = msg;
+    t.style.background = isError ? '#c0392b' : '#1a1a3e';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+async function loadAddressBook() {
+    const container = document.getElementById('addressList');
+    if (!container) return;
+    container.innerHTML = '<div style="padding:20px;color:#adb5bd;font-size:13px">Loading...</div>';
+    const data = await fetch('/buyer/api/addresses').then(r => r.json()).catch(() => []);
+    if (!data.length) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📍</div>
+                <h5>No saved addresses</h5>
+                <p>Add your delivery address to get started.</p>
+            </div>`;
+        return;
+    }
+    container.innerHTML = data.map(a => `
+        <div class="address-card mb-3">
+            ${a.is_default ? '<span class="default-badge">Default</span>' : ''}
+            <div style="font-size:14px;font-weight:600;margin-bottom:4px">${a.label || 'Home'}</div>
+            <div style="font-size:13px;color:var(--gray)">${[a.street,a.barangay,a.city,a.region,a.zip_code].filter(Boolean).join(', ')}</div>
+            ${a.latitude ? `<div style="font-size:12px;color:var(--gray);margin-top:4px">📍 ${Number(a.latitude).toFixed(5)}, ${Number(a.longitude).toFixed(5)}</div>` : ''}
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteAddress('${a.id}')">Delete</button>
+                ${!a.is_default ? `<button class="btn btn-sm btn-outline-success" onclick="setDefault('${a.id}')">Set Default</button>` : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+async function deleteAddress(id) {
+    if (!confirm('Delete this address?')) return;
+    const res = await fetch(`/buyer/api/addresses/${id}`, {
+        method: 'DELETE', headers: { 'X-CSRF-Token': CSRF() }
+    }).then(r => r.json()).catch(() => ({ error: 'Network error' }));
+    if (res.success) { showToast('Address deleted.'); loadAddressBook(); }
+    else showToast(res.error || 'Failed to delete.', true);
+}
+
+async function setDefault(id) {
+    const res = await fetch(`/buyer/api/addresses/${id}/default`, {
+        method: 'POST', headers: { 'X-CSRF-Token': CSRF() }
+    }).then(r => r.json()).catch(() => ({ error: 'Network error' }));
+    if (res.success) { showToast('Default address updated.'); loadAddressBook(); }
+    else showToast(res.error || 'Failed.', true);
+}
+
+async function saveAddress(e) {
+    e.preventDefault();
+    const label = document.getElementById('addrLabel')?.value.trim();
+    if (!label) { showToast('Please enter a label.', true); return; }
+
+    const psgc = getPSGCValues();
+    if (!psgc.region)   { showToast('Please select a region.', true); return; }
+    if (!psgc.city)     { showToast('Please select a city/municipality.', true); return; }
+    if (!psgc.barangay) { showToast('Please select a barangay.', true); return; }
+    if (!psgc.street)   { showToast('Please enter a street/house no.', true); return; }
+
+    const payload = { label, ...psgc };
+
+    const res = await fetch('/buyer/api/addresses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF() },
+        body: JSON.stringify(payload)
+    }).then(r => r.json()).catch(() => ({ error: 'Network error' }));
+
+    if (res.success) {
+        showToast('Address saved!');
+        document.getElementById('addressForm').reset();
+        bootstrap.Modal.getInstance(document.getElementById('addAddressModal'))?.hide();
+        loadAddressBook();
+    } else {
+        showToast(res.error || 'Failed to save address.', true);
+    }
+}
+
+// Init PSGC when modal opens, reset map on close
+const modal = document.getElementById('addAddressModal');
+let psgcInited = false;
+modal.addEventListener('shown.bs.modal', () => {
+    if (!psgcInited) {
+        // Small delay so modal is fully visible before Leaflet measures the container
+        setTimeout(() => {
+            initPSGC();
+            psgcInited = true;
+        }, 150);
+    } else {
+        if (typeof psgcMap !== 'undefined' && psgcMap) {
+            setTimeout(() => psgcMap.invalidateSize(), 150);
+        }
+    }
 });
+modal.addEventListener('hidden.bs.modal', () => {
+    document.getElementById('addressForm').reset();
+    // Reset PSGC globals so map re-inits cleanly next open
+    if (typeof psgcMap !== 'undefined' && psgcMap) {
+        psgcMap.remove();
+        psgcMap    = null;
+        psgcMarker = null;
+        psgcInited = false;
+    }
+});
+
+document.addEventListener('DOMContentLoaded', () => { loadAddressBook(); updateCartBadge(); });
 </script>
 </body>
 </html>

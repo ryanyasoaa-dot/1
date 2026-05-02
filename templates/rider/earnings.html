@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Luxe Rider — Earnings</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/rider.css') }}">
+    <style>
+        .chart-container { background:#fff; border-radius:14px; padding:20px; box-shadow:0 2px 12px rgba(0,0,0,.08); margin-bottom:20px; }
+        .chart-title { font-size:16px; font-weight:600; color:#1a1a3e; margin-bottom:16px; }
+    </style>
 </head>
 <body>
 
@@ -36,23 +41,35 @@
         <div class="topbar-right">Rider Panel</div>
     </div>
     <div class="content">
-        <div class="earnings-grid">
-            <div class="earning-card"><div class="earning-label">Total Earnings</div><div class="earning-value" id="totalEarnings">₱0.00</div></div>
-            <div class="earning-card"><div class="earning-label">Pending Payout</div><div class="earning-value" id="pendingPayout">₱0.00</div></div>
-            <div class="earning-card light"><div class="earning-label">Released</div><div class="earning-value" id="releasedPayout">₱0.00</div></div>
-            <div class="earning-card light"><div class="earning-label">Total Deliveries</div><div class="earning-value" id="totalDeliveries">0</div></div>
+
+        <div class="stats">
+            <div class="stat-card"><div class="stat-label">Total Earnings</div><div class="stat-value" id="totalEarnings">₱0.00</div><div class="stat-icon">💰</div></div>
+            <div class="stat-card"><div class="stat-label">This Month</div><div class="stat-value" id="monthEarnings">₱0.00</div><div class="stat-icon">📅</div></div>
+            <div class="stat-card"><div class="stat-label">This Week</div><div class="stat-value" id="weekEarnings">₱0.00</div><div class="stat-icon">📊</div></div>
+            <div class="stat-card"><div class="stat-label">Total Deliveries</div><div class="stat-value" id="totalDeliveries">0</div><div class="stat-icon">🚚</div></div>
         </div>
+
+        <div class="chart-container">
+            <div class="chart-title">Daily Earnings — Last 7 Days</div>
+            <canvas id="earningsChart" height="160"></canvas>
+        </div>
+
         <div class="card">
-            <div class="card-header"><h2>Payout History</h2></div>
-            <table>
-                <thead><tr><th>Date</th><th>Order ID</th><th>Amount</th><th>Status</th></tr></thead>
-                <tbody><tr><td colspan="4"><div class="empty-state"><div class="empty-icon">💰</div>No payout history yet.</div></td></tr></tbody>
-            </table>
+            <div class="card-header"><h2>Earnings History</h2></div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead><tr><th>Date</th><th>Order ID</th><th>Order Total</th><th>Earned</th></tr></thead>
+                    <tbody id="earningsHistory"></tbody>
+                </table>
+            </div>
         </div>
+
     </div>
 </div>
 
 <div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
 <script src="{{ url_for('static', filename='js/rider.js') }}"></script>
 </body>

@@ -3,10 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Luxe Seller — Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/seller.css') }}">
+    <style>
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .chart-container {
+            background: #fff;
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a3e;
+            margin: 0;
+        }
+        .chart-period {
+            display: flex;
+            gap: 8px;
+        }
+        .period-btn {
+            padding: 4px 12px;
+            border: 1px solid #e8e8f0;
+            background: #fff;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .period-btn.active {
+            background: #FF2BAC;
+            color: white;
+            border-color: #FF2BAC;
+        }
+        .status-breakdown {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+        }
+        .status-item {
+            text-align: center;
+            padding: 12px;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        .status-count {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .status-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        .status-pending { border-left: 4px solid #ffc107; }
+        .status-processing { border-left: 4px solid #17a2b8; }
+        .status-ready_for_pickup { border-left: 4px solid #fd7e14; }
+        .status-in_transit { border-left: 4px solid #6f42c1; }
+        .status-delivered { border-left: 4px solid #28a745; }
+        .product-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .product-item:last-child {
+            border-bottom: none;
+        }
+        .product-name {
+            font-weight: 500;
+            color: #1a1a3e;
+        }
+        .product-stats {
+            text-align: right;
+            font-size: 12px;
+        }
+        .product-revenue {
+            font-weight: 600;
+            color: #28a745;
+        }
+        .product-quantity {
+            color: #6c757d;
+        }
+        .low-stock-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+        }
+        .stock-badge {
+            background: #dc3545;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        @media (max-width: 768px) {
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
 </head>
 <body>
 
@@ -26,6 +150,8 @@
         <li class="menu-group">PROFILE</li>
         <li><a href="/seller/store"><span class="icon">🏬</span> Store Profile</a></li>
         <li><a href="/seller/reviews"><span class="icon">⭐</span> Reviews</a></li>
+        <li class="menu-group">SUPPORT</li>
+        <li><a href="/messages/"><span class="icon">💬</span> Messages</a></li>
     </ul>
     <div class="sidebar-footer">
         <div class="sidebar-user">🏪 {{ session.user.name }}</div>
@@ -40,41 +166,125 @@
     </div>
     <div class="content">
 
+        <!-- Enhanced Stats Cards -->
         <div class="stats">
-            <div class="stat-card"><div class="stat-label">Today's Sales</div><div class="stat-value">₱0</div><div class="stat-icon">📈</div></div>
-            <div class="stat-card"><div class="stat-label">Weekly Sales</div><div class="stat-value">₱0</div><div class="stat-icon">📊</div></div>
-            <div class="stat-card"><div class="stat-label">Monthly Sales</div><div class="stat-value">₱0</div><div class="stat-icon">💹</div></div>
-            <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-value">0</div><div class="stat-icon">🛒</div></div>
-            <div class="stat-card"><div class="stat-label">Pending Orders</div><div class="stat-value">0</div><div class="stat-icon">⏳</div></div>
-            <div class="stat-card"><div class="stat-label">Total Revenue</div><div class="stat-value">₱0</div><div class="stat-icon">💰</div></div>
+            <div class="stat-card"><div class="stat-label">Total Sales</div><div class="stat-value" id="statRevenue">₱0.00</div><div class="stat-icon">💰</div></div>
+            <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-value" id="statOrders">0</div><div class="stat-icon">🛒</div></div>
+            <div class="stat-card"><div class="stat-label">Products Listed</div><div class="stat-value" id="statProducts">0</div><div class="stat-icon">📦</div></div>
+            <div class="stat-card"><div class="stat-label">Pending Orders</div><div class="stat-value" id="statPending">0</div><div class="stat-icon">⏳</div></div>
+            <div class="stat-card"><div class="stat-label">Today's Sales</div><div class="stat-value" id="statToday">₱0.00</div><div class="stat-icon">📈</div></div>
+            <div class="stat-card"><div class="stat-label">Items Sold</div><div class="stat-value" id="statItems">0</div><div class="stat-icon">📊</div></div>
         </div>
+        <p style="font-size:11px;color:#999;margin:-8px 0 16px 4px">✅ Stats reflect delivered orders only</p>
 
-        <div class="card">
-            <div class="card-header"><h2>Quick Actions</h2></div>
-            <div class="quick-actions">
-                <a href="/seller/products/add" class="qa-card"><div class="qa-icon">➕</div><div class="qa-title">Add Product</div><div class="qa-sub">List a new item</div></a>
-                <a href="/seller/orders"        class="qa-card"><div class="qa-icon">🛒</div><div class="qa-title">View Orders</div><div class="qa-sub">Manage orders</div></a>
-                <a href="/seller/shipping"      class="qa-card"><div class="qa-icon">🚚</div><div class="qa-title">Shipping</div><div class="qa-sub">Track deliveries</div></a>
-                <a href="/seller/earnings"      class="qa-card"><div class="qa-icon">💰</div><div class="qa-title">Earnings</div><div class="qa-sub">View payouts</div></a>
-                <a href="/seller/reviews"       class="qa-card"><div class="qa-icon">⭐</div><div class="qa-title">Reviews</div><div class="qa-sub">Customer feedback</div></a>
+        <!-- Analytics Section -->
+        <div class="analytics-grid">
+            <!-- Sales Chart -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3 class="chart-title">Sales Analytics</h3>
+                    <div class="chart-period">
+                        <button class="period-btn active" onclick="changePeriod('daily', this)">Daily</button>
+                        <button class="period-btn" onclick="changePeriod('weekly', this)">Weekly</button>
+                        <button class="period-btn" onclick="changePeriod('monthly', this)">Monthly</button>
+                    </div>
+                </div>
+                <canvas id="salesChart" width="400" height="200"></canvas>
+            </div>
+
+            <!-- Order Status Breakdown -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3 class="chart-title">Order Status</h3>
+                </div>
+                <div class="status-breakdown" id="statusBreakdown">
+                    <!-- Populated by JavaScript -->
+                </div>
             </div>
         </div>
 
+        <!-- Second Row Analytics -->
+        <div class="row">
+            <!-- Top Selling Products -->
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Top Selling Products</h2>
+                    </div>
+                    <div class="card-body" id="topProducts">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Low Stock Alert -->
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Low Stock Alert</h2>
+                    </div>
+                    <div class="card-body" id="lowStockAlert">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Orders -->
         <div class="card">
             <div class="card-header">
                 <h2>Recent Orders</h2>
                 <a href="/seller/orders" class="btn btn-view">View All</a>
             </div>
-            <table>
-                <thead><tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Date</th></tr></thead>
-                <tbody id="ordersTable"></tbody>
-            </table>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead><tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+                    <tbody id="ordersTable"></tbody>
+                </table>
+            </div>
         </div>
 
     </div>
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- Chat Panel Backdrop -->
+<div class="chat-panel-backdrop" id="chatPanelBackdrop" onclick="closeOrderChat()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.2);z-index:1099"></div>
+
+<!-- Slide-in Chat Panel -->
+<div class="order-chat-panel" id="orderChatPanel" style="position:fixed;top:0;right:-420px;width:400px;height:100vh;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.12);display:flex;flex-direction:column;z-index:1100;transition:right .3s ease;border-left:1px solid #e8e8f0">
+    <div style="padding:14px 16px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#FF2BAC,#FF6BCE);color:#fff">
+        <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700">&#128100;</div>
+        <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700" id="chatPanelBuyerName">Buyer</div>
+            <div style="font-size:11px;opacity:.85" id="chatPanelOrderId">#—</div>
+        </div>
+        <button onclick="closeOrderChat()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;opacity:.8">&times;</button>
+    </div>
+    <div style="padding:10px 14px;border-bottom:1px solid #f0f0f0;background:#fffbfe">
+        <p style="font-size:11px;color:#6c757d;margin:0 0 6px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">&#9889; Quick Reply</p>
+        <button id="quickReplyBtn" onclick="sendQuickReply()" style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#FF2BAC,#FF6BCE);color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">&#128172; Send Welcome Message</button>
+    </div>
+    <div id="chatPanelMessages" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:4px;background:#f8f9fa"></div>
+    <div style="padding:10px 12px;border-top:1px solid #f0f0f0;display:flex;gap:8px;align-items:flex-end;background:#fff">
+        <textarea id="chatPanelInput" rows="1" placeholder="Type a message…" onkeydown="handleChatKey(event)" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'" style="flex:1;border:1px solid #e8e8f0;border-radius:18px;padding:8px 14px;font-size:13px;outline:none;resize:none;max-height:80px;font-family:inherit;line-height:1.4"></textarea>
+        <button onclick="sendChatPanelMessage()" style="width:36px;height:36px;border-radius:50%;background:#FF2BAC;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;flex-shrink:0">&#10148;</button>
+    </div>
+</div>
+
+<script>
+    _ME_ID = {{ session.user.id | tojson }};
+    // Sync backdrop
+    const _dbPanel = document.getElementById('orderChatPanel');
+    const _dbBackdrop = document.getElementById('chatPanelBackdrop');
+    const _dbOrigClose = closeOrderChat;
+    closeOrderChat = function() { _dbOrigClose(); _dbBackdrop.style.display = 'none'; _dbPanel.style.right = '-420px'; };
+    const _dbOrigMsg = messageBuyer;
+    messageBuyer = async function(o, b, n) { _dbBackdrop.style.display = 'block'; _dbPanel.style.right = '0'; await _dbOrigMsg(o, b, n); };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
 <script src="{{ url_for('static', filename='js/seller.js') }}"></script>
 </body>

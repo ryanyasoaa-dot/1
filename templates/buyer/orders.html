@@ -3,77 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luxe — My Orders</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Grande — My Orders</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
 </head>
 <body>
 
-<nav class="shop-navbar">
-    <div class="container d-flex align-items-center justify-content-between">
-        <a href="/" class="navbar-brand">Luxe</a>
-        <div class="d-flex gap-2">
-            <a href="/buyer/cart" class="nav-icon-btn">🛒<span class="nav-badge cart-count" style="display:none">0</span></a>
-            <a href="/buyer" class="nav-icon-btn">👤</a>
-        </div>
-    </div>
-</nav>
+{% from 'buyer/_navbar.html' import grande_navbar %}
+{{ grande_navbar(user=session.get('user'), active='orders') }}
 
 <div class="container py-4">
     <nav class="shop-breadcrumb">
-        <a href="/buyer">My Account</a> / <span>Orders</span>
+        <a href="/buyer/orders">Orders</a> / <span id="breadcrumbLabel">My Orders</span>
     </nav>
 
     <div class="row g-4">
 
-        <!-- Account sidebar -->
+        <!-- Sidebar -->
         <div class="col-12 col-md-3">
-            <div class="settings-card">
+            <div class="settings-card mb-3">
+                <div style="font-size:10px;font-weight:700;color:#adb5bd;text-transform:uppercase;letter-spacing:.8px;padding:0 4px 8px">Account</div>
                 <div class="settings-nav d-flex flex-column gap-1">
-                    <a href="/buyer" class="nav-link"><span class="icon">🏠</span> Dashboard</a>
-                    <a href="/buyer/orders" class="nav-link active"><span class="icon">📦</span> My Orders</a>
-                    <a href="/buyer/wishlist" class="nav-link"><span class="icon">❤️</span> Wishlist</a>
+                    <a href="/buyer/orders"       class="nav-link active"><span class="icon">📦</span> My Orders</a>
                     <a href="/buyer/address_book" class="nav-link"><span class="icon">📍</span> Addresses</a>
-                    <a href="/buyer/settings" class="nav-link"><span class="icon">⚙️</span> Settings</a>
-                    <a href="/logout" class="nav-link" style="color:#ef4444"><span class="icon">🚪</span> Logout</a>
+                </div>
+            </div>
+            <div class="settings-card">
+                <div style="font-size:10px;font-weight:700;color:#adb5bd;text-transform:uppercase;letter-spacing:.8px;padding:0 4px 8px">Settings</div>
+                <div class="settings-nav d-flex flex-column gap-1">
+                    <a href="/buyer/settings"                  class="nav-link"><span class="icon">👤</span> Profile</a>
+                    <a href="/buyer/settings#sectionPassword"  class="nav-link"><span class="icon">🔑</span> Password</a>
+                    <a href="/buyer/settings#sectionNotif"     class="nav-link"><span class="icon">🔔</span> Notifications</a>
+                    <a href="/buyer/settings#sectionSecurity"  class="nav-link"><span class="icon">🛡️</span> Security</a>
                 </div>
             </div>
         </div>
 
-        <!-- Orders list -->
+        <!-- Main content -->
         <div class="col-12 col-md-9">
-            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                <div class="section-title mb-0">My Orders</div>
-                <div class="d-flex gap-2 flex-wrap">
-                    <button class="btn btn-sm btn-outline-secondary active" onclick="filterOrders('all',this)">All</button>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('pending',this)">Pending</button>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('processing',this)">Processing</button>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('ready_for_pickup',this)">Ready for Pickup</button>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('in_transit',this)">In Transit</button>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('delivered',this)">Delivered</button>
-                </div>
-            </div>
-            <div id="ordersList"></div>
-        </div>
 
+            <!-- ── Orders panel ── -->
+            <div id="panelOrders">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div class="section-title mb-0">My Orders</div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-sm btn-outline-secondary active" onclick="filterOrders('all',this)">All</button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('pending',this)">Pending</button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('processing',this)">Processing</button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('ready_for_pickup',this)">Ready for Pickup</button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('in_transit',this)">In Transit</button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="filterOrders('delivered',this)">Delivered</button>
+                    </div>
+                </div>
+                <div id="ordersList"></div>
+            </div>
+
+
+
+        </div>
     </div>
 </div>
 
 <div class="shop-toast" id="shopToast"></div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
-<script src="{{ url_for('static', filename='js/shop.js') }}"></script>
 <script>
+async function updateCartBadge() {
+    const cart = await fetch('/buyer/api/cart').then(r => r.json()).catch(() => []);
+    const total = cart.reduce((s, i) => s + Number(i.quantity || 0), 0);
+    document.querySelectorAll('.cart-count').forEach(el => {
+        el.textContent = total;
+        el.style.display = total > 0 ? 'flex' : 'none';
+    });
+}
+
 let allOrders = [];
 
-async function initOrders() {
+async function initOrdersPage() {
     allOrders = await API.buyer.getOrders().catch(() => []);
     renderOrders(allOrders);
 }
 
 function filterOrders(status, btn) {
-    document.querySelectorAll('.btn-outline-secondary').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#panelOrders .btn-outline-secondary').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     const filtered = status === 'all' ? allOrders : allOrders.filter(o => o.status === status);
     renderOrders(filtered);
@@ -91,32 +104,18 @@ function renderOrders(data) {
                 <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
                     <div>
                         <div style="font-size:14px;font-weight:700">Order #${(o.id||'').slice(0,8).toUpperCase()}</div>
-                        <div style="font-size:12px;color:var(--gray)">${formatDate(o.created_at)}</div>
+                        <div style="font-size:12px;color:var(--gray)">${new Date(o.created_at).toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric'})}</div>
                     </div>
-                    <span class="badge badge-${o.status} text-uppercase">${o.status}</span>
+                    <span class="badge text-uppercase" style="background:var(--pink);color:#fff;padding:4px 10px;border-radius:6px">${o.status.replace(/_/g,' ')}</span>
                 </div>
-                <div style="font-size:13px;margin-bottom:12px">${o.items_count || 0} item(s) · <strong style="color:var(--pink)">${formatCurrency(o.total)}</strong></div>
+                <div style="font-size:13px;margin-bottom:12px">${o.items_count || 0} item(s) · <strong style="color:var(--pink)">₱${Number(o.total||0).toLocaleString('en-PH',{minimumFractionDigits:2})}</strong></div>
                 <div class="timeline" style="padding-left:20px">
-                    <div class="timeline-item ${['pending','processing','ready_for_pickup','in_transit','delivered'].includes(o.status) ? 'done' : ''}">
-                        <div class="timeline-dot"></div>
-                        <div class="timeline-title" style="font-size:12px">Order Placed</div>
-                    </div>
-                    <div class="timeline-item ${['processing','ready_for_pickup','in_transit','delivered'].includes(o.status) ? 'done' : o.status === 'pending' ? '' : 'active'}">
-                        <div class="timeline-dot"></div>
-                        <div class="timeline-title" style="font-size:12px">Processing</div>
-                    </div>
-                    <div class="timeline-item ${['ready_for_pickup','in_transit','delivered'].includes(o.status) ? 'done' : ''}">
-                        <div class="timeline-dot"></div>
-                        <div class="timeline-title" style="font-size:12px">Ready for Pickup</div>
-                    </div>
-                    <div class="timeline-item ${o.status === 'delivered' ? 'done' : o.status === 'in_transit' ? 'active' : ''}">
-                        <div class="timeline-dot"></div>
-                        <div class="timeline-title" style="font-size:12px">In Transit</div>
-                    </div>
-                    <div class="timeline-item ${o.status === 'delivered' ? 'done' : ''}">
-                        <div class="timeline-dot"></div>
-                        <div class="timeline-title" style="font-size:12px">Delivered</div>
-                    </div>
+                    ${['pending','processing','ready_for_pickup','in_transit','delivered'].map((s,i,arr) => {
+                        const idx = arr.indexOf(o.status);
+                        const done = i <= idx;
+                        const active = i === idx;
+                        return `<div class="timeline-item ${done?'done':''} ${active?'active':''}"><div class="timeline-dot"></div><div class="timeline-title" style="font-size:12px">${s.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</div></div>`;
+                    }).join('')}
                 </div>
                 <a href="/buyer/order_summary?id=${o.id}" class="btn-outline-pink px-3 py-1 mt-3 d-inline-block" style="font-size:12px">View Details</a>
             </div>
@@ -124,7 +123,7 @@ function renderOrders(data) {
     `).join('');
 }
 
-document.addEventListener('DOMContentLoaded', initOrders);
+document.addEventListener('DOMContentLoaded', () => { initOrdersPage(); updateCartBadge(); });
 </script>
 </body>
 </html>

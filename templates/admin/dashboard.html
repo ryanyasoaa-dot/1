@@ -5,8 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Luxe Admin — Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <style>
+        .analytics-grid { display:grid; grid-template-columns:2fr 1fr; gap:20px; margin-bottom:20px; }
+        .chart-container { background:#fff; border-radius:14px; padding:20px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+        .chart-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+        .chart-title { font-size:18px; font-weight:600; color:#1a1a3e; margin:0; }
+        .period-btn { padding:4px 12px; border:1px solid #e8e8f0; background:#fff; border-radius:6px; font-size:12px; cursor:pointer; transition:all .2s; }
+        .period-btn.active { background:#1a1a3e; color:#fff; border-color:#1a1a3e; }
+        .commission-box { background:linear-gradient(135deg,#1a1a3e,#2d2d6e); color:#fff; border-radius:14px; padding:24px; margin-bottom:20px; }
+        .commission-box h3 { font-size:14px; opacity:.8; margin-bottom:4px; }
+        .commission-box .big { font-size:32px; font-weight:700; }
+        .commission-rate-badge { background:rgba(255,255,255,.15); border-radius:20px; padding:4px 14px; font-size:13px; display:inline-block; margin-top:8px; }
+        .status-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px; }
+        @media(max-width:768px){ .analytics-grid{ grid-template-columns:1fr; } .stats{ grid-template-columns:repeat(2,1fr); } }
+    </style>
 </head>
 <body>
 
@@ -42,29 +57,77 @@
     </div>
     <div class="content">
 
+        <!-- Summary Cards -->
         <div class="stats">
-            <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value" id="stat-users">—</div><div class="stat-icon">👥</div></div>
-            <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" id="stat-pending">—</div><div class="stat-icon">⏳</div></div>
-            <div class="stat-card"><div class="stat-label">Approved</div><div class="stat-value" id="stat-approved">—</div><div class="stat-icon">✅</div></div>
-            <div class="stat-card"><div class="stat-label">Sellers</div><div class="stat-value" id="stat-sellers">—</div><div class="stat-icon">🏪</div></div>
-            <div class="stat-card"><div class="stat-label">Riders</div><div class="stat-value" id="stat-riders">—</div><div class="stat-icon">🏍️</div></div>
-            <div class="stat-card"><div class="stat-label">Buyers</div><div class="stat-value" id="stat-buyers">—</div><div class="stat-icon">🛍️</div></div>
+            <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value" id="statUsers">—</div><div class="stat-icon">👥</div></div>
+            <div class="stat-card"><div class="stat-label">Sellers</div><div class="stat-value" id="statSellers">—</div><div class="stat-icon">🏪</div></div>
+            <div class="stat-card"><div class="stat-label">Riders</div><div class="stat-value" id="statRiders">—</div><div class="stat-icon">🏍️</div></div>
+            <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-value" id="statOrders">—</div><div class="stat-icon">🛒</div></div>
+            <div class="stat-card"><div class="stat-label">Total Revenue</div><div class="stat-value" id="statRevenue">₱0.00</div><div class="stat-icon">💵</div></div>
+            <div class="stat-card"><div class="stat-label">Admin Commission</div><div class="stat-value" id="statCommission">₱0.00</div><div class="stat-icon">💰</div></div>
         </div>
 
-        <div class="card">
-            <div class="card-header"><h2>Quick Actions</h2></div>
-            <div class="quick-actions">
-                <a href="/admin/applications" class="qa-card"><div class="qa-icon">📋</div><div class="qa-title">Applications</div><div class="qa-sub">Review & approve</div></a>
-                <a href="/admin/users"        class="qa-card"><div class="qa-icon">👥</div><div class="qa-title">Users</div><div class="qa-sub">Manage accounts</div></a>
-                <a href="/admin/products"     class="qa-card"><div class="qa-icon">📦</div><div class="qa-title">Products</div><div class="qa-sub">Monitor listings</div></a>
-                <a href="/admin/orders"       class="qa-card"><div class="qa-icon">🛒</div><div class="qa-title">Orders</div><div class="qa-sub">Track all orders</div></a>
-                <a href="/admin/reports"      class="qa-card"><div class="qa-icon">🚩</div><div class="qa-title">Reports</div><div class="qa-sub">Flags & disputes</div></a>
+        <!-- Commission Banner + Rate Config -->
+        <div class="commission-box">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h3>Admin Commission Earnings</h3>
+                    <div class="big" id="commissionTotal">₱0.00</div>
+                    <div class="commission-rate-badge" id="commissionRateBadge">Rate: 5%</div>
+                </div>
+                <div class="col-md-6 mt-3 mt-md-0">
+                    <div class="row g-2 text-center">
+                        <div class="col-4"><div style="font-size:11px;opacity:.7">Today</div><div style="font-size:18px;font-weight:700" id="commissionToday">₱0</div></div>
+                        <div class="col-4"><div style="font-size:11px;opacity:.7">This Week</div><div style="font-size:18px;font-weight:700" id="commissionWeek">₱0</div></div>
+                        <div class="col-4"><div style="font-size:11px;opacity:.7">This Month</div><div style="font-size:18px;font-weight:700" id="commissionMonth">₱0</div></div>
+                    </div>
+                    <div class="mt-3 d-flex gap-2 align-items-center">
+                        <input type="number" id="commissionRateInput" min="1" max="30" step="0.5" placeholder="Rate %" class="form-control form-control-sm" style="width:100px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;">
+                        <input type="number" id="riderRateInput" min="1" step="1" placeholder="Rider ₱/delivery" class="form-control form-control-sm" style="width:140px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;">
+                        <button onclick="saveCommissionRates()" class="btn btn-sm" style="background:#FF2BAC;color:#fff;border:none;">Save Rates</button>
+                    </div>
+                </div>
             </div>
         </div>
 
+        <!-- Analytics Grid -->
+        <div class="analytics-grid">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3 class="chart-title">Sales Analytics</h3>
+                    <div class="d-flex gap-2">
+                        <button class="period-btn active" onclick="changeAdminPeriod('daily',this)">Daily</button>
+                        <button class="period-btn" onclick="changeAdminPeriod('weekly',this)">Weekly</button>
+                        <button class="period-btn" onclick="changeAdminPeriod('monthly',this)">Monthly</button>
+                    </div>
+                </div>
+                <canvas id="adminSalesChart" height="200"></canvas>
+            </div>
+            <div class="chart-container">
+                <div class="chart-header"><h3 class="chart-title">Orders by Status</h3></div>
+                <canvas id="adminStatusChart" height="220"></canvas>
+                <div id="statusLegend" class="mt-3" style="font-size:12px;"></div>
+            </div>
+        </div>
+
+        <!-- Recent Orders -->
         <div class="card">
             <div class="card-header">
-                <h2>Recent Pending Applications</h2>
+                <h2>Recent Orders</h2>
+                <a href="/admin/orders" class="btn btn-view">View All</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead><tr><th>Order ID</th><th>Buyer</th><th>Rider</th><th>Total</th><th>Commission</th><th>Status</th><th>Date</th></tr></thead>
+                    <tbody id="adminRecentOrders"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pending Applications -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Pending Applications</h2>
                 <a href="/admin/applications" class="btn btn-view">View All</a>
             </div>
             <table>
@@ -77,6 +140,8 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
 <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
 </body>

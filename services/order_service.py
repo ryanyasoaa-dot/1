@@ -9,7 +9,7 @@ class OrderService:
         self.product_model = ProductModel()
     
     def create_order(self, buyer_id, items, address, payment_method='cod'):
-        """Create a new order"""
+        """Create a new order with proper stock validation"""
         # Validate and calculate totals
         validated_items = []
         total_amount = 0
@@ -27,6 +27,11 @@ class OrderService:
             if not product or product.get('status') != 'active':
                 continue
             
+            # Validate stock availability
+            if not self.order_model._check_stock_availability(product_id, variant_id, quantity):
+                product_name = product.get('name', 'Unknown product')
+                return {'success': False, 'error': f'Insufficient stock for {product_name}. Please reduce quantity or remove from cart.'}
+            
             # Calculate item total
             item_price = float(product.get('price', 0))
             item_total = item_price * quantity
@@ -43,7 +48,7 @@ class OrderService:
         if len(validated_items) == 0:
             return {'success': False, 'error': 'No valid items in order.'}
         
-        # Create order
+        # Create order with stock reservation
         try:
             order_data = {
                 'buyer_id': buyer_id,
@@ -54,18 +59,9 @@ class OrderService:
             }
             
             order = self.order_model.create(order_data, validated_items)
-            
-            # Update product stocks (for variants)
-            for item in validated_items:
-                if item.get('variant_id'):
-                    self.product_model.update_variant_stock(
-                        item['variant_id'],
-                        -item['quantity']
-                    )
-            
             return {
                 'success': True,
-                'message': 'Order created successfully!',
+                'message': 'Order created successfully! Stock has been reserved.',
                 'order': order
             }
         except Exception as e:

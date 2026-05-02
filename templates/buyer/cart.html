@@ -3,294 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luxe — My Cart</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Grande — My Cart</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
     <style>
         body { background: #f8f9fa; }
-
-        /* ── Navbar ── */
-        .ct-navbar {
-            background: #fff;
-            border-bottom: 1px solid #e8e8f0;
-            padding: 12px 0;
-            position: sticky; top: 0; z-index: 1000;
-            box-shadow: 0 2px 8px rgba(0,0,0,.04);
-        }
-        .ct-brand {
-            font-family: 'Playfair Display', serif;
-            font-size: 24px; font-weight: 700;
-            background: linear-gradient(135deg, #FF2BAC, #FF9ED6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-decoration: none;
-        }
-        .ct-nav-link {
-            font-size: 13px; font-weight: 500;
-            color: #6c757d; text-decoration: none;
-            display: flex; align-items: center; gap: 4px;
-            transition: color .2s;
-        }
-        .ct-nav-link:hover { color: #FF2BAC; }
-        .ct-cart-badge {
-            position: absolute; top: 0; right: 0;
-            background: #FF2BAC; color: #fff;
-            font-size: 10px; font-weight: 700;
-            width: 16px; height: 16px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-        }
-
-        /* ── Page header ── */
-        .ct-page-header {
-            padding: 28px 0 8px;
-        }
-        .ct-page-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 28px; font-weight: 700; color: #1a1a3e;
-        }
-        .ct-breadcrumb {
-            font-size: 13px; color: #6c757d;
-        }
-        .ct-breadcrumb a { color: #FF2BAC; text-decoration: none; }
-        .ct-breadcrumb a:hover { text-decoration: underline; }
-
-        /* ── Step indicator ── */
-        .ct-steps {
-            display: flex; align-items: center;
-            gap: 0; margin-bottom: 28px;
-        }
-        .ct-step {
-            display: flex; flex-direction: column;
-            align-items: center; gap: 5px;
-            flex: 1; position: relative;
-        }
-        .ct-step::after {
-            content: '';
-            position: absolute; top: 15px; left: 50%;
-            width: 100%; height: 2px;
-            background: #e8e8f0; z-index: 0;
-        }
-        .ct-step:last-child::after { display: none; }
-        .ct-step-circle {
-            width: 30px; height: 30px; border-radius: 50%;
-            border: 2px solid #e8e8f0; background: #fff;
-            font-size: 12px; font-weight: 700;
-            display: flex; align-items: center; justify-content: center;
-            position: relative; z-index: 1; transition: all .2s;
-            color: #6c757d;
-        }
-        .ct-step.active .ct-step-circle  { background: #FF2BAC; border-color: #FF2BAC; color: #fff; }
-        .ct-step.done   .ct-step-circle  { background: #10b981; border-color: #10b981; color: #fff; }
-        .ct-step-label { font-size: 11px; color: #6c757d; }
-        .ct-step.active .ct-step-label   { color: #FF2BAC; font-weight: 600; }
-        .ct-step.done   .ct-step-label   { color: #10b981; font-weight: 600; }
-
-        /* ── Cart item card ── */
-        .ct-item {
-            background: #fff;
-            border: 1px solid #e8e8f0;
-            border-radius: 14px;
-            padding: 16px;
-            margin-bottom: 12px;
-            transition: box-shadow .2s;
-        }
-        .ct-item:hover { box-shadow: 0 4px 16px rgba(0,0,0,.07); }
-
-        .ct-item-img {
-            width: 88px; height: 88px;
-            border-radius: 10px;
-            background: #f8f9fa;
-            overflow: hidden; flex-shrink: 0;
-            border: 1px solid #e8e8f0;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 32px;
-        }
-        .ct-item-img img { width: 100%; height: 100%; object-fit: cover; }
-
-        .ct-item-name {
-            font-size: 14px; font-weight: 600;
-            color: #1a1a3e; line-height: 1.4;
-            margin-bottom: 4px;
-        }
-        .ct-item-variant {
-            font-size: 12px; color: #6c757d;
-            margin-bottom: 6px;
-        }
-        .ct-item-price {
-            font-size: 16px; font-weight: 700;
-            color: #FF2BAC;
-        }
-        .ct-item-subtotal {
-            font-size: 13px; color: #6c757d;
-            margin-top: 2px;
-        }
-
-        /* ── Qty control ── */
-        .ct-qty {
-            display: flex; align-items: center;
-            border: 1.5px solid #e8e8f0;
-            border-radius: 8px; overflow: hidden;
-            width: fit-content;
-        }
-        .ct-qty-btn {
-            width: 32px; height: 32px;
-            border: none; background: #f8f9fa;
-            font-size: 16px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            transition: all .2s; color: #1a1a3e;
-        }
-        .ct-qty-btn:hover { background: #ffe0f5; color: #FF2BAC; }
-        .ct-qty-btn:disabled { opacity: .4; cursor: not-allowed; }
-        .ct-qty-val {
-            width: 40px; text-align: center;
-            font-size: 14px; font-weight: 600;
-            color: #1a1a3e; background: #fff;
-            border-left: 1.5px solid #e8e8f0;
-            border-right: 1.5px solid #e8e8f0;
-            padding: 4px 0;
-        }
-
-        /* ── Remove button ── */
-        .ct-remove {
-            background: none; border: none;
-            color: #adb5bd; font-size: 18px;
-            cursor: pointer; padding: 4px;
-            transition: color .2s; line-height: 1;
-        }
-        .ct-remove:hover { color: #e74c3c; }
-
-        /* ── Summary box ── */
-        .ct-summary {
-            background: #fff;
-            border: 1px solid #e8e8f0;
-            border-radius: 14px;
-            padding: 22px;
-            position: sticky; top: 76px;
-        }
-        .ct-summary-title {
-            font-size: 15px; font-weight: 700;
-            color: #1a1a3e; margin-bottom: 18px;
-            padding-bottom: 14px;
-            border-bottom: 1px solid #e8e8f0;
-        }
-        .ct-summary-row {
-            display: flex; justify-content: space-between;
-            font-size: 14px; color: #6c757d;
-            margin-bottom: 10px;
-        }
-        .ct-summary-row.total {
-            font-size: 16px; font-weight: 700;
-            color: #1a1a3e;
-            border-top: 1px solid #e8e8f0;
-            padding-top: 14px; margin-top: 6px;
-        }
-        .ct-summary-row.total span:last-child { color: #FF2BAC; }
-
-        .ct-checkout-btn {
-            width: 100%; padding: 14px;
-            background: linear-gradient(135deg, #FF2BAC, #FF6BCE);
-            color: #fff; border: none;
-            border-radius: 10px;
-            font-size: 15px; font-weight: 600;
-            cursor: pointer; transition: all .2s;
-            text-decoration: none; display: block;
-            text-align: center; margin-top: 16px;
-        }
-        .ct-checkout-btn:hover {
-            box-shadow: 0 8px 24px rgba(255,43,172,.3);
-            transform: translateY(-1px); color: #fff;
-        }
-        .ct-free-ship {
-            font-size: 12px; color: #10b981;
-            text-align: center; margin-top: 10px;
-            font-weight: 500;
-        }
-        .ct-ship-progress {
-            height: 4px; background: #e8e8f0;
-            border-radius: 4px; margin-top: 8px; overflow: hidden;
-        }
-        .ct-ship-bar {
-            height: 100%;
-            background: linear-gradient(90deg, #FF2BAC, #FF6BCE);
-            border-radius: 4px; transition: width .4s ease;
-        }
-
-        /* ── Empty state ── */
-        .ct-empty {
-            text-align: center; padding: 80px 20px;
-        }
-        .ct-empty-icon { font-size: 64px; margin-bottom: 16px; }
-        .ct-empty h4 { font-family: 'Playfair Display', serif; font-size: 22px; color: #1a1a3e; margin-bottom: 8px; }
-        .ct-empty p  { font-size: 14px; color: #6c757d; margin-bottom: 24px; }
-        .ct-shop-btn {
-            background: linear-gradient(135deg, #FF2BAC, #FF6BCE);
-            color: #fff; border: none; border-radius: 10px;
-            padding: 12px 28px; font-size: 14px; font-weight: 600;
-            text-decoration: none; display: inline-block;
-            transition: all .2s;
-        }
-        .ct-shop-btn:hover { box-shadow: 0 8px 24px rgba(255,43,172,.3); color: #fff; transform: translateY(-1px); }
-
-        /* ── Loading skeleton ── */
-        .ct-skeleton {
-            background: #f0f0f0;
-            border-radius: 8px;
-            animation: ct-pulse 1.4s ease-in-out infinite;
-        }
-        @keyframes ct-pulse {
-            0%, 100% { opacity: 1; }
-            50%       { opacity: .5; }
-        }
-
-        /* ── Responsive ── */
-        @media (max-width: 576px) {
-            .ct-item-img { width: 70px; height: 70px; }
-            .ct-item-name { font-size: 13px; }
-            .ct-item-price { font-size: 15px; }
-            .ct-summary { position: static; }
+        .ct-page-header { padding: 28px 0 8px; }
+        .ct-page-title  { font-family:'Playfair Display',serif; font-size:28px; font-weight:700; color:#1a1a3e; }
+        .ct-steps { display:flex; align-items:center; gap:0; margin-bottom:28px; }
+        .ct-step  { display:flex; flex-direction:column; align-items:center; gap:5px; flex:1; position:relative; }
+        .ct-step::after { content:''; position:absolute; top:15px; left:50%; width:100%; height:2px; background:#e8e8f0; z-index:0; }
+        .ct-step:last-child::after { display:none; }
+        .ct-step-circle { width:30px; height:30px; border-radius:50%; border:2px solid #e8e8f0; background:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; position:relative; z-index:1; transition:all .2s; color:#6c757d; }
+        .ct-step.active .ct-step-circle { background:#FF2BAC; border-color:#FF2BAC; color:#fff; }
+        .ct-step.done   .ct-step-circle { background:#10b981; border-color:#10b981; color:#fff; }
+        .ct-step-label { font-size:11px; color:#6c757d; }
+        .ct-step.active .ct-step-label  { color:#FF2BAC; font-weight:600; }
+        .ct-item { background:#fff; border:1px solid #e8e8f0; border-radius:14px; padding:16px; margin-bottom:12px; transition:box-shadow .2s; }
+        .ct-item:hover { box-shadow:0 4px 16px rgba(0,0,0,.07); }
+        .ct-item-img { width:88px; height:88px; border-radius:10px; background:#f8f9fa; overflow:hidden; flex-shrink:0; border:1px solid #e8e8f0; display:flex; align-items:center; justify-content:center; font-size:32px; }
+        .ct-item-img img { width:100%; height:100%; object-fit:cover; }
+        .ct-item-name    { font-size:14px; font-weight:600; color:#1a1a3e; line-height:1.4; margin-bottom:4px; }
+        .ct-item-variant { font-size:12px; color:#6c757d; margin-bottom:6px; }
+        .ct-item-price   { font-size:16px; font-weight:700; color:#FF2BAC; }
+        .ct-item-subtotal{ font-size:13px; color:#6c757d; margin-top:2px; }
+        .ct-stock-hint   { font-size:11px; margin-top:3px; }
+        .ct-stock-max    { color:#e74c3c; }
+        .ct-stock-ok     { color:#adb5bd; }
+        .ct-qty { display:flex; align-items:center; border:1.5px solid #e8e8f0; border-radius:8px; overflow:hidden; width:fit-content; }
+        .ct-qty-btn { width:32px; height:32px; border:none; background:#f8f9fa; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; color:#1a1a3e; }
+        .ct-qty-btn:hover   { background:#ffe0f5; color:#FF2BAC; }
+        .ct-qty-btn:disabled{ opacity:.4; cursor:not-allowed; }
+        .ct-qty-val { width:40px; text-align:center; font-size:14px; font-weight:600; color:#1a1a3e; background:#fff; border-left:1.5px solid #e8e8f0; border-right:1.5px solid #e8e8f0; padding:4px 0; }
+        .ct-remove { background:none; border:none; color:#adb5bd; font-size:18px; cursor:pointer; padding:4px; transition:color .2s; line-height:1; }
+        .ct-remove:hover { color:#e74c3c; }
+        .ct-summary { background:#fff; border:1px solid #e8e8f0; border-radius:14px; padding:22px; position:sticky; top:76px; }
+        .ct-summary-title { font-size:15px; font-weight:700; color:#1a1a3e; margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid #e8e8f0; }
+        .ct-summary-row { display:flex; justify-content:space-between; font-size:14px; color:#6c757d; margin-bottom:10px; }
+        .ct-summary-row.total { font-size:16px; font-weight:700; color:#1a1a3e; border-top:1px solid #e8e8f0; padding-top:14px; margin-top:6px; }
+        .ct-summary-row.total span:last-child { color:#FF2BAC; }
+        .ct-checkout-btn { width:100%; padding:14px; background:linear-gradient(135deg,#FF2BAC,#FF6BCE); color:#fff; border:none; border-radius:10px; font-size:15px; font-weight:600; cursor:pointer; transition:all .2s; text-decoration:none; display:block; text-align:center; margin-top:16px; }
+        .ct-checkout-btn:hover { box-shadow:0 8px 24px rgba(255,43,172,.3); transform:translateY(-1px); color:#fff; }
+        .ct-free-ship { font-size:12px; color:#10b981; text-align:center; margin-top:10px; font-weight:500; }
+        .ct-ship-progress { height:4px; background:#e8e8f0; border-radius:4px; margin-top:8px; overflow:hidden; }
+        .ct-ship-bar { height:100%; background:linear-gradient(90deg,#FF2BAC,#FF6BCE); border-radius:4px; transition:width .4s ease; }
+        .ct-empty { text-align:center; padding:80px 20px; }
+        .ct-empty-icon { font-size:64px; margin-bottom:16px; }
+        .ct-empty h4 { font-family:'Playfair Display',serif; font-size:22px; color:#1a1a3e; margin-bottom:8px; }
+        .ct-empty p  { font-size:14px; color:#6c757d; margin-bottom:24px; }
+        .ct-shop-btn { background:linear-gradient(135deg,#FF2BAC,#FF6BCE); color:#fff; border:none; border-radius:10px; padding:12px 28px; font-size:14px; font-weight:600; text-decoration:none; display:inline-block; transition:all .2s; }
+        .ct-shop-btn:hover { box-shadow:0 8px 24px rgba(255,43,172,.3); color:#fff; transform:translateY(-1px); }
+        .ct-skeleton { background:#f0f0f0; border-radius:8px; animation:ct-pulse 1.4s ease-in-out infinite; }
+        @keyframes ct-pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+        @media (max-width:576px) {
+            .ct-item-img { width:70px; height:70px; }
+            .ct-item-name { font-size:13px; }
+            .ct-item-price { font-size:15px; }
+            .ct-summary { position:static; }
         }
     </style>
 </head>
 <body>
 
-<!-- ── NAVBAR ── -->
-<nav class="ct-navbar">
-    <div class="container d-flex align-items-center justify-content-between">
-        <div class="d-flex align-items-center gap-3">
-            <a href="/" class="ct-brand">Luxe</a>
-            <nav aria-label="breadcrumb" class="d-none d-md-block">
-                <ol class="breadcrumb mb-0" style="font-size:13px">
-                    <li class="breadcrumb-item"><a href="/" style="color:#FF2BAC">Home</a></li>
-                    <li class="breadcrumb-item"><a href="/buyer/market" style="color:#FF2BAC">Shop</a></li>
-                    <li class="breadcrumb-item active">Cart</li>
-                </ol>
-            </nav>
-        </div>
-        <div class="d-flex align-items-center gap-3">
-            {% if session.user %}
-            <a href="/buyer/wishlist" class="ct-nav-link">❤️</a>
-            <a href="/buyer/cart" class="ct-nav-link" style="position:relative">
-                🛒<span class="ct-cart-badge cart-count" id="cartBadge" style="display:none">0</span>
-            </a>
-            <a href="/buyer/profile" class="ct-nav-link">👤 {{ session.user.name.split()[0] }}</a>
-            <a href="/logout" class="ct-nav-link" style="color:#FF2BAC">Logout</a>
-            {% else %}
-            <a href="/login" class="ct-nav-link">Login</a>
-            <a href="/register" class="ct-checkout-btn" style="padding:8px 16px;font-size:13px;width:auto;display:inline-block">Register</a>
-            {% endif %}
-        </div>
-    </div>
-</nav>
+{% from 'buyer/_navbar.html' import grande_navbar %}
+{{ grande_navbar(user=session.get('user'), active='cart') }}
 
-<!-- ── CONTENT ── -->
 <div class="container pb-5">
 
-    <!-- Page header -->
     <div class="ct-page-header">
-        <h1 class="ct-page-title">My Cart 🛒</h1>
+        <h1 class="ct-page-title">My Cart</h1>
     </div>
 
     <!-- Step indicator -->
@@ -349,23 +133,19 @@
     <div id="ctContent" style="display:none">
         <div class="row g-4">
 
-            <!-- Items list -->
             <div class="col-12 col-lg-8">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <span id="ctItemCount" style="font-size:14px;color:#6c757d;font-weight:500"></span>
-                    <button onclick="clearAllItems()" style="background:none;border:none;font-size:13px;color:#adb5bd;cursor:pointer;transition:color .2s"
-                        onmouseover="this.style.color='#e74c3c'" onmouseout="this.style.color='#adb5bd'">
+                    <button id="clearAllBtn" style="background:none;border:none;font-size:13px;color:#adb5bd;cursor:pointer">
                         🗑 Clear all
                     </button>
                 </div>
                 <div id="ctItems"></div>
             </div>
 
-            <!-- Order summary -->
             <div class="col-12 col-lg-4">
                 <div class="ct-summary">
                     <div class="ct-summary-title">Order Summary</div>
-
                     <div class="ct-summary-row">
                         <span>Subtotal (<span id="ctSumCount">0</span> items)</span>
                         <span id="ctSubtotal">₱0.00</span>
@@ -378,15 +158,11 @@
                         <span>Total</span>
                         <span id="ctTotal">₱0.00</span>
                     </div>
-
-                    <!-- Free shipping progress -->
                     <div id="ctShipMsg" class="ct-free-ship mt-2"></div>
                     <div class="ct-ship-progress mt-1">
                         <div class="ct-ship-bar" id="ctShipBar" style="width:0%"></div>
                     </div>
-
                     <a href="/buyer/checkout" class="ct-checkout-btn">Proceed to Checkout →</a>
-
                     <div style="font-size:12px;color:#adb5bd;text-align:center;margin-top:12px">
                         🔒 Secure checkout &nbsp;·&nbsp; Free shipping over ₱500
                     </div>
@@ -404,36 +180,37 @@
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
 <script src="{{ url_for('static', filename='js/shop.js') }}"></script>
 <script>
-// ── State ─────────────────────────────────────────────────────
 let cartData = [];
 
-// ── Helpers ───────────────────────────────────────────────────
 function imgUrl(path) {
     if (!path) return null;
     return path.startsWith('/') ? path : '/' + path;
 }
 
 function fmt(amount) {
-    return '₱' + Number(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
+    return '\u20b1' + Number(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
 }
 
-// ── Render a single cart item row ─────────────────────────────
+// ── Render one cart item ──────────────────────────────────────
 function renderItem(item) {
-    const img    = imgUrl(item.image);
-    const name   = item.name || item.product?.name || 'Product';
-    const price  = Number(item.price_snapshot || 0);
-    const qty    = Number(item.quantity || 1);
-    const sub    = price * qty;
+    const img      = imgUrl(item.image);
+    const name     = item.name || item.product?.name || 'Product';
+    const price    = Number(item.price_snapshot || 0);
+    const qty      = Number(item.quantity || 1);
+    const sub      = price * qty;
+    const maxStock = Number(item.available_stock ?? 9999);
+    const atMax    = qty >= maxStock;
 
-    // Variant label — try to get from variant data if available
-    const variant = item.variant_value || item.variant?.value || '';
-    const variantHtml = variant
-        ? `<div class="ct-item-variant">🎨 ${variant}</div>`
-        : '';
+    const variantVal  = item.variant_value || item.variant?.value || '';
+    const variantHtml = variantVal ? `<div class="ct-item-variant">Color: ${variantVal}</div>` : '';
+
+    const stockHtml = atMax
+        ? `<div class="ct-stock-hint ct-stock-max">Max stock reached (${maxStock})</div>`
+        : `<div class="ct-stock-hint ct-stock-ok">${maxStock} in stock</div>`;
 
     const imgHtml = img
-        ? `<img src="${img}" alt="${name}" onerror="this.parentElement.innerHTML='🛍️'">`
-        : '🛍️';
+        ? `<img src="${img}" alt="${name}" onerror="this.parentElement.textContent='?'">`
+        : '?';
 
     return `
     <div class="ct-item d-flex gap-3" id="item-${item.id}">
@@ -443,13 +220,14 @@ function renderItem(item) {
             ${variantHtml}
             <div class="ct-item-price">${fmt(price)}</div>
             <div class="ct-item-subtotal">Subtotal: <strong style="color:#1a1a3e">${fmt(sub)}</strong></div>
+            ${stockHtml}
         </div>
         <div class="d-flex flex-column align-items-end justify-content-between flex-shrink-0">
-            <button class="ct-remove" onclick="removeItem('${item.id}')" title="Remove">×</button>
+            <button class="ct-remove" onclick="removeItem('${item.id}')" title="Remove">&times;</button>
             <div class="ct-qty">
-                <button class="ct-qty-btn" onclick="changeQty('${item.id}', ${qty - 1})" ${qty <= 1 ? 'disabled' : ''}>−</button>
+                <button class="ct-qty-btn" onclick="changeQty('${item.id}', ${qty - 1})" ${qty <= 1 ? 'disabled' : ''}>&minus;</button>
                 <span class="ct-qty-val">${qty}</span>
-                <button class="ct-qty-btn" onclick="changeQty('${item.id}', ${qty + 1})">+</button>
+                <button class="ct-qty-btn" onclick="changeQty('${item.id}', ${qty + 1})" ${atMax ? 'disabled title="Maximum stock reached"' : ''}>+</button>
             </div>
         </div>
     </div>`;
@@ -458,122 +236,122 @@ function renderItem(item) {
 // ── Render full cart ──────────────────────────────────────────
 function renderCart(cart) {
     document.getElementById('ctLoading').style.display = 'none';
-
     if (!cart.length) {
         document.getElementById('ctEmpty').style.display   = 'block';
         document.getElementById('ctContent').style.display = 'none';
         return;
     }
-
     document.getElementById('ctEmpty').style.display   = 'none';
     document.getElementById('ctContent').style.display = 'block';
-
-    const totalQty = cart.reduce((s, i) => s + Number(i.quantity || 0), 0);
     document.getElementById('ctItemCount').textContent =
         `${cart.length} item${cart.length !== 1 ? 's' : ''} in your cart`;
-
     document.getElementById('ctItems').innerHTML = cart.map(renderItem).join('');
     updateSummary(cart);
 }
 
-// ── Update order summary numbers ──────────────────────────────
+// ── Summary numbers ───────────────────────────────────────────
 function updateSummary(cart) {
-    const subtotal  = cart.reduce((s, i) => s + Number(i.price_snapshot || 0) * Number(i.quantity || 0), 0);
-    const shipping  = subtotal >= 500 ? 0 : 50;
-    const total     = subtotal + shipping;
-    const totalQty  = cart.reduce((s, i) => s + Number(i.quantity || 0), 0);
+    const subtotal = cart.reduce((s, i) => s + Number(i.price_snapshot || 0) * Number(i.quantity || 0), 0);
+    const shipping = subtotal >= 500 ? 0 : 50;
+    const total    = subtotal + shipping;
+    const totalQty = cart.reduce((s, i) => s + Number(i.quantity || 0), 0);
 
     document.getElementById('ctSubtotal').textContent = fmt(subtotal);
-    document.getElementById('ctShipping').textContent = shipping === 0 ? 'FREE 🎉' : fmt(shipping);
+    document.getElementById('ctShipping').textContent = shipping === 0 ? 'FREE' : fmt(shipping);
     document.getElementById('ctTotal').textContent    = fmt(total);
     document.getElementById('ctSumCount').textContent = totalQty;
 
-    // Shipping progress bar
     const progress = Math.min(100, (subtotal / 500) * 100);
     document.getElementById('ctShipBar').style.width = progress + '%';
-    const remaining = 500 - subtotal;
     document.getElementById('ctShipMsg').textContent = subtotal >= 500
-        ? '🎉 You\'ve unlocked free shipping!'
-        : `Add ${fmt(remaining)} more for free shipping`;
+        ? 'You\'ve unlocked free shipping!'
+        : `Add ${fmt(500 - subtotal)} more for free shipping`;
 
-    // Also update global cart badge
     document.querySelectorAll('.cart-count').forEach(el => {
         el.textContent = totalQty;
         el.style.display = totalQty > 0 ? 'flex' : 'none';
     });
 
-    // Sync shop.js summary IDs used by checkout page
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     set('subtotalAmt', fmt(subtotal));
     set('shippingAmt', shipping === 0 ? 'FREE' : fmt(shipping));
     set('totalAmt',    fmt(total));
 }
 
-// ── Change quantity ───────────────────────────────────────────
+// ── Change quantity (with stock check) ────────────────────────
 async function changeQty(itemId, newQty) {
     if (newQty < 1) { removeItem(itemId); return; }
 
-    // Optimistic UI update
-    const item = cartData.find(i => i.id === itemId);
+    const item     = cartData.find(i => i.id === itemId);
+    const maxStock = Number(item?.available_stock ?? 9999);
+
+    if (newQty > maxStock) {
+        showToast(`Maximum stock reached (${maxStock} available)`, true);
+        return;
+    }
+
+    // Optimistic update
     if (item) {
         item.quantity = newQty;
         document.getElementById('ctItems').innerHTML = cartData.map(renderItem).join('');
         updateSummary(cartData);
     }
 
-    await API.buyer.updateCartItem(itemId, newQty).catch(() => null);
+    const res = await API.buyer.updateCartItem(itemId, newQty).catch(() => ({ error: 'Network error' }));
+    if (res && res.error) {
+        // Revert to server-enforced max if provided
+        if (item && res.max !== undefined) {
+            item.quantity        = res.max;
+            item.available_stock = res.max;
+            document.getElementById('ctItems').innerHTML = cartData.map(renderItem).join('');
+            updateSummary(cartData);
+        }
+        showToast(res.error, true);
+    }
     updateCartBadge();
 }
 
 // ── Remove item ───────────────────────────────────────────────
 async function removeItem(itemId) {
-    // Optimistic UI update
     cartData = cartData.filter(i => i.id !== itemId);
     renderCart(cartData);
-
     await API.buyer.removeCartItem(itemId).catch(() => null);
     updateCartBadge();
     showToast('Item removed from cart.');
 }
 
-// ── Clear all items ───────────────────────────────────────────
+// ── Clear all ─────────────────────────────────────────────────
 async function clearAllItems() {
     if (!cartData.length) return;
-    if (!confirm('Remove all items from your cart?')) return;
-
-    const ids = cartData.map(i => i.id);
+    const ids = [...cartData.map(i => i.id)];
     cartData = [];
     renderCart([]);
-
     await Promise.all(ids.map(id => API.buyer.removeCartItem(id).catch(() => null)));
     updateCartBadge();
     showToast('Cart cleared.');
 }
 
-// ── Load cart from API ────────────────────────────────────────
+// ── Load cart ─────────────────────────────────────────────────
 async function loadCartPage() {
     updateCartBadge();
-
     const raw = await API.buyer.getCart().catch(() => null);
-
     if (!raw || !Array.isArray(raw)) {
         document.getElementById('ctLoading').style.display = 'none';
         document.getElementById('ctEmpty').style.display   = 'block';
         return;
     }
-
-    // Normalise image path — backend sets item.image from product_images
-    // but may return path without leading slash
     cartData = raw.map(item => ({
         ...item,
         image: imgUrl(item.image),
         name:  item.name || item.product?.name || 'Product',
     }));
-
     renderCart(cartData);
 }
 
-document.addEventListener('DOMContentLoaded', loadCartPage);
+document.addEventListener('DOMContentLoaded', () => {
+    loadCartPage();
+    document.getElementById('clearAllBtn')?.addEventListener('click', clearAllItems);
+});
 </script>
 </body>
 </html>

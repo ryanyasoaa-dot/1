@@ -26,8 +26,12 @@ function goToStep(step) {
 
     // Init PSGC map when step 3 is shown
     if (step === 3 && !window._psgcInited) {
-        initPSGC();
-        window._psgcInited = true;
+        setTimeout(() => {
+            initPSGC();
+            window._psgcInited = true;
+        }, 150);
+    } else if (step === 3 && psgcMap) {
+        setTimeout(() => psgcMap.invalidateSize(), 150);
     }
 
     // Show correct doc section on step 2

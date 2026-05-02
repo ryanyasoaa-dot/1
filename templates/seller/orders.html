@@ -3,10 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Luxe Seller — Orders</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/seller.css') }}">
+    <style>
+        /* Message button */
+        .btn-msg {
+            background: #fff0f8; color: #FF2BAC; border: 1px solid #FF2BAC;
+            border-radius: 6px; padding: 4px 10px; font-size: 12px;
+            font-weight: 600; cursor: pointer; transition: all .2s;
+            display: inline-flex; align-items: center; gap: 4px;
+        }
+        .btn-msg:hover { background: #FF2BAC; color: #fff; }
+
+        /* Chat slide-in panel */
+        .order-chat-panel {
+            position: fixed; top: 0; right: -420px; width: 400px; height: 100vh;
+            background: #fff; box-shadow: -4px 0 24px rgba(0,0,0,.12);
+            display: flex; flex-direction: column; z-index: 1100;
+            transition: right .3s ease; border-left: 1px solid #e8e8f0;
+        }
+        .order-chat-panel.open { right: 0; }
+
+        .chat-panel-header {
+            padding: 14px 16px; border-bottom: 1px solid #f0f0f0;
+            display: flex; align-items: center; gap: 10px;
+            background: linear-gradient(135deg, #FF2BAC, #FF6BCE);
+            color: #fff;
+        }
+        .chat-panel-avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: rgba(255,255,255,.25);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; font-weight: 700; flex-shrink: 0;
+        }
+        .chat-panel-title { flex: 1; min-width: 0; }
+        .chat-panel-title .name { font-size: 14px; font-weight: 700; }
+        .chat-panel-title .order-ref { font-size: 11px; opacity: .85; }
+        .chat-panel-close {
+            background: none; border: none; color: #fff; font-size: 20px;
+            cursor: pointer; padding: 4px; line-height: 1; opacity: .8;
+        }
+        .chat-panel-close:hover { opacity: 1; }
+
+        /* Quick reply bar */
+        .quick-reply-bar {
+            padding: 10px 14px; border-bottom: 1px solid #f0f0f0;
+            background: #fffbfe;
+        }
+        .quick-reply-bar p {
+            font-size: 11px; color: #6c757d; margin: 0 0 6px;
+            font-weight: 600; text-transform: uppercase; letter-spacing: .4px;
+        }
+        .quick-reply-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: linear-gradient(135deg, #FF2BAC, #FF6BCE);
+            color: #fff; border: none; border-radius: 20px;
+            padding: 6px 14px; font-size: 12px; font-weight: 600;
+            cursor: pointer; transition: all .2s;
+        }
+        .quick-reply-btn:hover { box-shadow: 0 4px 12px rgba(255,43,172,.35); transform: translateY(-1px); }
+        .quick-reply-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+        /* Messages area */
+        .chat-panel-messages {
+            flex: 1; overflow-y: auto; padding: 14px;
+            display: flex; flex-direction: column; gap: 4px;
+            background: #f8f9fa;
+        }
+
+        /* Input area */
+        .chat-panel-input-area {
+            padding: 10px 12px; border-top: 1px solid #f0f0f0;
+            display: flex; gap: 8px; align-items: flex-end; background: #fff;
+        }
+        .chat-panel-input {
+            flex: 1; border: 1px solid #e8e8f0; border-radius: 18px;
+            padding: 8px 14px; font-size: 13px; outline: none;
+            resize: none; max-height: 80px; font-family: inherit;
+            line-height: 1.4; transition: border-color .2s;
+        }
+        .chat-panel-input:focus { border-color: #FF2BAC; }
+        .chat-panel-send {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: #FF2BAC; border: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px; color: #fff; flex-shrink: 0; transition: all .2s;
+        }
+        .chat-panel-send:hover { background: #e0259a; }
+
+        /* Overlay backdrop */
+        .chat-panel-backdrop {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,.2); z-index: 1099;
+        }
+        .chat-panel-backdrop.open { display: block; }
+
+        @media (max-width: 480px) {
+            .order-chat-panel { width: 100%; right: -100%; }
+        }
+    </style>
 </head>
 <body>
 
@@ -16,20 +114,22 @@
 <aside class="sidebar">
     <div class="sidebar-logo">Luxe Seller</div>
     <ul class="sidebar-menu">
-        <li><a href="/seller"><span class="icon">🏠</span> Dashboard</a></li>
+        <li><a href="/seller"><span class="icon">&#127968;</span> Dashboard</a></li>
         <li class="menu-group">STORE</li>
-        <li><a href="/seller/products"><span class="icon">📦</span> Products</a></li>
-        <li><a href="/seller/orders" class="active"><span class="icon">🛒</span> Orders</a></li>
-        <li><a href="/seller/shipping"><span class="icon">🚚</span> Shipping</a></li>
+        <li><a href="/seller/products"><span class="icon">&#128230;</span> Products</a></li>
+        <li><a href="/seller/orders" class="active"><span class="icon">&#128722;</span> Orders</a></li>
+        <li><a href="/seller/shipping"><span class="icon">&#128666;</span> Shipping</a></li>
         <li class="menu-group">FINANCE</li>
-        <li><a href="/seller/earnings"><span class="icon">💰</span> Earnings</a></li>
+        <li><a href="/seller/earnings"><span class="icon">&#128176;</span> Earnings</a></li>
         <li class="menu-group">PROFILE</li>
-        <li><a href="/seller/store"><span class="icon">🏬</span> Store Profile</a></li>
-        <li><a href="/seller/reviews"><span class="icon">⭐</span> Reviews</a></li>
+        <li><a href="/seller/store"><span class="icon">&#127980;</span> Store Profile</a></li>
+        <li><a href="/seller/reviews"><span class="icon">&#11088;</span> Reviews</a></li>
+        <li class="menu-group">SUPPORT</li>
+        <li><a href="/messages/"><span class="icon">&#128172;</span> Messages</a></li>
     </ul>
     <div class="sidebar-footer">
-        <div class="sidebar-user">🏪 {{ session.user.name }}</div>
-        <a href="/logout" class="logout-link">🚪 Logout</a>
+        <div class="sidebar-user">&#127978; {{ session.user.name }}</div>
+        <a href="/logout" class="logout-link">&#128682; Logout</a>
     </div>
 </aside>
 
@@ -40,10 +140,10 @@
     </div>
     <div class="content">
         <div class="stats">
-            <div class="stat-card"><div class="stat-label">New</div><div class="stat-value">0</div><div class="stat-icon">🆕</div></div>
-            <div class="stat-card"><div class="stat-label">Processing</div><div class="stat-value">0</div><div class="stat-icon">⚙️</div></div>
-            <div class="stat-card"><div class="stat-label">For Shipping</div><div class="stat-value">0</div><div class="stat-icon">📦</div></div>
-            <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value">0</div><div class="stat-icon">✅</div></div>
+            <div class="stat-card"><div class="stat-label">New</div><div class="stat-value">0</div><div class="stat-icon">&#127381;</div></div>
+            <div class="stat-card"><div class="stat-label">Processing</div><div class="stat-value">0</div><div class="stat-icon">&#9881;&#65039;</div></div>
+            <div class="stat-card"><div class="stat-label">For Shipping</div><div class="stat-value">0</div><div class="stat-icon">&#128230;</div></div>
+            <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value">0</div><div class="stat-icon">&#9989;</div></div>
         </div>
         <div class="card">
             <div class="card-header"><h2>All Orders</h2></div>
@@ -63,8 +163,63 @@
     </div>
 </div>
 
+<!-- Chat Panel Backdrop -->
+<div class="chat-panel-backdrop" id="chatPanelBackdrop" onclick="closeOrderChat()"></div>
+
+<!-- Slide-in Chat Panel -->
+<div class="order-chat-panel" id="orderChatPanel">
+    <div class="chat-panel-header">
+        <div class="chat-panel-avatar">&#128100;</div>
+        <div class="chat-panel-title">
+            <div class="name" id="chatPanelBuyerName">Buyer</div>
+            <div class="order-ref" id="chatPanelOrderId">#—</div>
+        </div>
+        <button class="chat-panel-close" onclick="closeOrderChat()" title="Close">&times;</button>
+    </div>
+
+    <!-- Quick Reply Bar -->
+    <div class="quick-reply-bar" id="quickReplyBar">
+        <p>&#9889; Quick Reply</p>
+        <button class="quick-reply-btn" id="quickReplyBtn" onclick="sendQuickReply()">
+            &#128172; Send Welcome Message
+        </button>
+    </div>
+
+    <!-- Messages -->
+    <div class="chat-panel-messages" id="chatPanelMessages"></div>
+
+    <!-- Input -->
+    <div class="chat-panel-input-area">
+        <textarea class="chat-panel-input" id="chatPanelInput" rows="1"
+            placeholder="Type a message…"
+            onkeydown="handleChatKey(event)"
+            oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
+        <button class="chat-panel-send" onclick="sendChatPanelMessage()">&#10148;</button>
+    </div>
+</div>
+
+<!-- Inject current user ID for bubble direction -->
+<script>
+    _ME_ID = {{ session.user.id | tojson }};
+</script>
+
 <div class="toast" id="toast"></div>
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
 <script src="{{ url_for('static', filename='js/seller.js') }}"></script>
+<script>
+    // Sync backdrop with panel open state
+    const _panel = document.getElementById('orderChatPanel');
+    const _backdrop = document.getElementById('chatPanelBackdrop');
+    const _origClose = closeOrderChat;
+    closeOrderChat = function() {
+        _origClose();
+        _backdrop.classList.remove('open');
+    };
+    const _origOpen = messageBuyer;
+    messageBuyer = async function(orderId, buyerId, buyerName) {
+        _backdrop.classList.add('open');
+        await _origOpen(orderId, buyerId, buyerName);
+    };
+</script>
 </body>
 </html>

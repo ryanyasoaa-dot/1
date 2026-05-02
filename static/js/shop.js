@@ -494,20 +494,87 @@ function loadWishlist() {
 
     const list = getWishlist();
 
+    // Update count badge
+    const countBadge = document.getElementById('wishlistCount');
+    if (countBadge) countBadge.textContent = list.length;
+
     if (!list.length) {
         grid.innerHTML = `
-            <div class="col-12">
-                <div class="empty-state">
-                    <div class="empty-icon">❤️</div>
-                    <h5>Your wishlist is empty</h5>
-                    <p>Save items you love to buy them later.</p>
-                    <a href="/buyer/market" class="btn-pink px-4 py-2">Browse Products</a>
-                </div>
+            <div class="wishlist-empty">
+                <div class="empty-heart">❤️</div>
+                <h3>Your wishlist is empty</h3>
+                <p>Save items you love to buy them later.</p>
+                <a href="/buyer/market" class="btn-browse">Browse Products</a>
             </div>`;
         return;
     }
 
-    grid.innerHTML = list.map(p => renderProductCard(p)).join('');
+    grid.innerHTML = '';
+    list.forEach(p => grid.appendChild(buildWishlistCard(p)));
+}
+
+function buildWishlistCard(p) {
+    const price = parseFloat(p.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
+    const imgSrc = p.image ? (p.image.startsWith('/') ? p.image : '/' + p.image) : '';
+    const seller = p.seller ? `${p.seller.first_name || ''} ${p.seller.last_name || ''}`.trim() : '';
+    const stock = p.total_stock ?? p.stock ?? 0;
+
+    const card = document.createElement('div');
+    card.className = 'wishlist-card';
+
+    const imgEl = imgSrc
+        ? `<img src="${imgSrc}" alt="${p.name}" onerror="this.parentElement.innerHTML='<span class=\\'wc-image-placeholder\\'>🛍️</span>'">`
+        : `<span class="wc-image-placeholder">🛍️</span>`;
+
+    card.innerHTML = `
+        <div class="wc-image" onclick="window.location='/buyer/product?id=${p.id}'">
+            ${imgEl}
+            <button class="wc-remove" onclick="event.stopPropagation(); removeWishlistItem(${JSON.stringify(p).replace(/"/g, '"')})" title="Remove from wishlist">✕</button>
+        </div>
+        <div class="wc-body">
+            <h3 class="wc-name" onclick="window.location='/buyer/product?id=${p.id}'">${p.name}</h3>
+            ${seller ? `<div class="wc-seller">by ${seller}</div>` : ''}
+            <div class="wc-price">₱${price}</div>
+            <div class="wc-stock ${stock > 0 ? 'in-stock' : 'out-stock'}">
+                ${stock > 0 ? `${stock} in stock` : 'Out of stock'}
+            </div>
+            <div class="wc-actions">
+                <button class="wc-btn-cart" onclick="addToCart({id:'${p.id}',name:'${p.name}'})" ${stock <= 0 ? 'disabled' : ''}>
+                    ${stock > 0 ? 'Add to Cart' : 'Out of Stock'}
+                </button>
+                <button class="wc-btn-remove" onclick="removeWishlistItem(${JSON.stringify(p).replace(/"/g, '"')})">
+                    ❤️ Remove
+                </button>
+            </div>
+        </div>`;
+    return card;
+}
+
+function removeWishlistItem(product) {
+    const list = getWishlist();
+    const idx = list.findIndex(i => i.id === product.id);
+    if (idx > -1) {
+        list.splice(idx, 1);
+        localStorage.setItem('luxe_wishlist', JSON.stringify(list));
+        showToast('Removed from wishlist.');
+        loadWishlist(); // Refresh the grid
+        updateWishlistIcons(); // Update heart icons on other pages
+    }
+}
+
+function updateWishlistIcons() {
+    // Update all wishlist heart icons across the page
+    const wishlist = getWishlist();
+    document.querySelectorAll('.product-wishlist').forEach(btn => {
+        const card = btn.closest('.product-card');
+        if (card) {
+            const productId = card.dataset.productId || null;
+            if (productId) {
+                const isWishlisted = wishlist.some(i => i.id == productId);
+                btn.classList.toggle('active', isWishlisted);
+            }
+        }
+    });
 }
 
 // ── Address book page ─────────────────────────────────────────

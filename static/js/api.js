@@ -73,6 +73,12 @@ const API = {
         getReviews:        ()             => _get('/seller/api/reviews'),
         getStore:          ()             => _get('/seller/api/store'),
         updateStore:       (data)         => _post('/seller/api/store', data),
+        // Enhanced Analytics Endpoints
+        getDashboardSummary: ()           => _get('/seller/api/dashboard-summary'),
+        getSalesAnalytics: (period)      => _get(`/seller/api/sales-analytics?period=${encodeURIComponent(period || 'daily')}`),
+        getRecentOrders:   (limit)       => _get(`/seller/api/recent-orders?limit=${encodeURIComponent(limit || 10)}`),
+        getTopProducts:    (limit)       => _get(`/seller/api/top-products?limit=${encodeURIComponent(limit || 5)}`),
+        getLowStock:       (threshold)   => _get(`/seller/api/low-stock?threshold=${encodeURIComponent(threshold || 10)}`),
     },
 
     // ── Buyer ─────────────────────────────────────────────────
@@ -96,8 +102,10 @@ const API = {
     rider: {
         getDeliveries:  ()              => _get('/rider/api/deliveries'),
         acceptDelivery: (id)            => _post(`/rider/api/deliveries/${encodeURIComponent(id)}/accept`, {}),
-        getEarnings:    ()              => _get('/rider/api/earnings'),
         updateStatus:   (id, status)    => _post(`/rider/api/deliveries/${encodeURIComponent(id)}/status`, { status }),
+        getLocations:   (id)            => _get(`/rider/api/deliveries/${encodeURIComponent(id)}/locations`),
+        getDashboard:   ()              => _get('/rider/api/dashboard'),
+        getEarnings:    ()              => _get('/rider/api/earnings'),
     },
 
     // ── Public (shop) ─────────────────────────────────────────
@@ -110,6 +118,12 @@ const API = {
     admin: {
         getOrders:         (status = '') => _get(`/admin/api/orders${status ? '?status=' + encodeURIComponent(status) : ''}`),
         updateOrderStatus: (id, status, rider_id = '') => _post(`/admin/api/orders/${encodeURIComponent(id)}/status`, { status, rider_id }),
+        getDashboard:      ()            => _get('/admin/api/dashboard'),
+        getEarnings:       ()            => _get('/admin/api/earnings'),
+        getCommission:     ()            => _get('/admin/api/commission'),
+        setCommission:     (data)        => _post('/admin/api/commission', data),
+        getSalesAnalytics: (period)      => _get(`/admin/api/sales-analytics?period=${encodeURIComponent(period || 'daily')}`),
+        getRecentOrders:   (limit)       => _get(`/admin/api/recent-orders?limit=${encodeURIComponent(limit || 10)}`),
     },
 
     // ── Admin: Products ───────────────────────────────────────
@@ -117,5 +131,16 @@ const API = {
         getAll:       (status = '')              => _get(`/admin/api/products${status ? '?status=' + encodeURIComponent(status) : ''}`),
         getOne:       (id)                       => _get(`/admin/api/products/${encodeURIComponent(id)}`),
         updateStatus: (id, status, reason = '')  => _post(`/admin/api/products/${encodeURIComponent(id)}/status`, { status, reason }),
+    },
+
+    // ── Messages ──────────────────────────────────────────────
+    messages: {
+        getConversations:  ()                       => _get('/messages/api/conversations'),
+        startConversation: (userId, orderId = null) => _post('/messages/api/conversations/start', { user_id: userId, order_id: orderId }),
+        getMessages:       (convId, after = null)   => _get(`/messages/api/conversations/${encodeURIComponent(convId)}/messages${after ? '?after=' + encodeURIComponent(after) : ''}`),
+        sendMessage:       (convId, content)        => _post(`/messages/api/conversations/${encodeURIComponent(convId)}/messages`, { content }),
+        markRead:          (convId)                 => _post(`/messages/api/conversations/${encodeURIComponent(convId)}/read`, {}),
+        getUnreadCount:    ()                       => _get('/messages/api/unread-count'),
+        quickMessage:      (buyerId, orderId, sendAuto) => _post('/messages/api/quick-message', { buyer_id: buyerId, order_id: orderId, send_auto: sendAuto }),
     },
 };

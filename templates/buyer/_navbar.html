@@ -1,0 +1,413 @@
+{#
+  _navbar.html — Shared Grande navbar macro
+  ─────────────────────────────────────────
+  PURPOSE:
+    Single source of truth for the site-wide navigation bar.
+    Import and call this macro in every buyer-facing page so
+    branding, links, and icons stay consistent everywhere.
+
+  USAGE (in any template):
+    {% from 'buyer/_navbar.html' import grande_navbar %}
+    {{ grande_navbar(user=session.get('user'), active='shop') }}
+
+  PARAMETERS:
+    user   — pass session.get('user')  (dict or None)
+    active — 'home' | 'shop' | 'wishlist' | 'orders' | '' (highlights the current page link)
+
+  REQUIREMENT (in each page <head>):
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+#}
+
+{% macro grande_navbar(user=None, active='') %}
+{% set buyer_name = 'Account' %}
+{% if user %}
+  {% if user.first_name %}
+    {% set buyer_name = user.first_name %}
+  {% elif user.name %}
+    {% set buyer_name = user.name|split(' ')|first %}
+  {% endif %}
+{% endif %}
+<style>
+  .gn-bar {
+    background:#fff; border-bottom:1px solid #e8e8f0;
+    padding:0; position:sticky; top:0; z-index:1050;
+    box-shadow:0 2px 12px rgba(0,0,0,.06);
+  }
+  .gn-inner {
+    display:flex; align-items:center; height:60px;
+  }
+  .gn-brand {
+    font-family:'Playfair Display',serif;
+    font-size:22px; font-weight:700;
+    background:linear-gradient(135deg,#FF2BAC,#FF9ED6);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    background-clip:text; text-decoration:none;
+    white-space:nowrap; margin-right:32px; flex-shrink:0;
+  }
+  .gn-brand small {
+    font-size:11px; font-weight:500; display:block;
+    -webkit-text-fill-color:#adb5bd; background:none;
+    letter-spacing:.5px; margin-top:-4px;
+  }
+  .gn-links {
+    display:flex; align-items:center; gap:4px;
+    list-style:none; margin:0; padding:0; flex:1;
+  }
+  .gn-links a {
+    font-size:13px; font-weight:500; color:#6c757d;
+    text-decoration:none; padding:6px 12px;
+    border-radius:8px; transition:all .2s; white-space:nowrap;
+  }
+  .gn-links a:hover, .gn-links a.active { color:#FF2BAC; background:#fff0f8; }
+  .gn-actions { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+  .gn-icon {
+    position:relative; width:38px; height:38px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px; text-decoration:none; color:#1a1a3e;
+    transition:all .2s; border:none; background:none; cursor:pointer;
+  }
+  .gn-icon:hover { background:#f8f9fa; color:#FF2BAC; }
+  .gn-badge {
+    position:absolute; top:2px; right:2px;
+    background:#FF2BAC; color:#fff; font-size:9px; font-weight:700;
+    min-width:16px; height:16px; border-radius:8px; padding:0 3px;
+    display:flex; align-items:center; justify-content:center;
+    border:2px solid #fff;
+  }
+  .gn-notif-dot {
+    position:absolute; top:6px; right:6px;
+    width:8px; height:8px; background:#FF2BAC;
+    border-radius:50%; border:2px solid #fff;
+    display:none;
+  }
+  .gn-notif-dot.has-notif { display:block; }
+  .gn-notif-dropdown {
+    position: absolute; top: 100%; right: 0;
+    background: #fff; border: 1px solid #e8e8f0;
+    border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.12);
+    width: 320px; max-height: 400px; overflow-y: auto;
+    z-index: 1060; display: none;
+  }
+  .gn-notif-dropdown.show { display: block; }
+  .gn-notif-header {
+    padding: 12px 16px; border-bottom: 1px solid #f0f0f0;
+    font-size: 14px; font-weight: 600; color: #1a1a3e;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .gn-notif-item {
+    padding: 12px 16px; border-bottom: 1px solid #f8f9fa;
+    display: flex; gap: 10px; align-items: flex-start;
+    cursor: pointer; transition: background .2s;
+  }
+  .gn-notif-item:hover { background: #f8f9fa; }
+  .gn-notif-item.unread { background: #fff8fc; }
+  .gn-notif-img {
+    width: 36px; height: 36px; border-radius: 6px;
+    object-fit: cover; flex-shrink: 0;
+  }
+  .gn-notif-icon {
+    width: 36px; height: 36px; border-radius: 6px;
+    background: #fff0f8; display: flex;
+    align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  .gn-notif-content {
+    flex: 1; min-width: 0;
+  }
+  .gn-notif-title {
+    font-size: 12px; font-weight: 600; color: #1a1a3e;
+    margin-bottom: 2px; line-height: 1.3;
+  }
+  .gn-notif-text {
+    font-size: 11px; color: #6c757d;
+    line-height: 1.3; margin-bottom: 2px;
+  }
+  .gn-notif-time {
+    font-size: 10px; color: #adb5bd;
+  }
+  .gn-notif-empty {
+    padding: 24px 16px; text-align: center;
+    color: #6c757d; font-size: 12px;
+  }
+  .gn-profile-wrap {
+    position:relative;
+  }
+  .gn-user {
+    font-size:12px; font-weight:600; color:#1a1a3e;
+    text-decoration:none; padding:6px 12px; border-radius:10px;
+    background:#f8f9fa; transition:all .2s; white-space:nowrap;
+    display:flex; align-items:center; gap:6px; cursor:pointer;
+    border:none;
+  }
+  .gn-user:hover, .gn-user.open { background:#fff0f8; color:#FF2BAC; }
+  .gn-profile-dropdown {
+    position:absolute; top:calc(100% + 8px); right:0;
+    background:#fff; border:1px solid #e8e8f0;
+    border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,.12);
+    min-width:180px; z-index:1060; display:none; overflow:hidden;
+  }
+  .gn-profile-dropdown.show { display:block; }
+  .gn-profile-dropdown a {
+    display:flex; align-items:center; gap:10px;
+    padding:11px 16px; font-size:13px; font-weight:500;
+    color:#1a1a3e; text-decoration:none; transition:background .15s;
+  }
+  .gn-profile-dropdown a:hover { background:#f8f9fa; }
+  .gn-profile-dropdown .divider {
+    height:1px; background:#f0f0f0; margin:4px 0;
+  }
+  .gn-profile-dropdown .logout-link { color:#ef4444; }
+  .gn-profile-dropdown .logout-link:hover { background:#fff5f5; }
+  .gn-register {
+    font-size:13px; font-weight:600;
+    background:linear-gradient(135deg,#FF2BAC,#FF6BCE);
+    color:#fff; border:none; border-radius:10px;
+    padding:8px 16px; text-decoration:none; transition:all .2s;
+  }
+  .gn-register:hover { box-shadow:0 4px 16px rgba(255,43,172,.3); color:#fff; }
+  .gn-hamburger {
+    display:none; flex-direction:column; gap:5px;
+    cursor:pointer; background:none; border:none;
+    padding:6px; margin-left:auto; flex-shrink:0;
+  }
+  .gn-hamburger span {
+    display:block; width:22px; height:2px;
+    background:#1a1a3e; border-radius:2px; transition:all .3s;
+  }
+  @media (max-width:768px) {
+    .gn-links { display:none; flex-direction:column; gap:2px; }
+    .gn-links.open {
+      display:flex; position:absolute; top:60px; left:0; right:0;
+      background:#fff; padding:12px 16px;
+      border-bottom:1px solid #e8e8f0;
+      box-shadow:0 8px 24px rgba(0,0,0,.08); z-index:1049;
+    }
+    .gn-links.open a { padding:10px 12px; }
+    .gn-hamburger { display:flex; }
+    .gn-brand { margin-right:auto; }
+  }
+</style>
+
+<nav class="gn-bar">
+  <div class="container gn-inner">
+
+    <a href="/" class="gn-brand">
+      Grande
+      <small>Marketplace</small>
+    </a>
+
+    <ul class="gn-links" id="gnLinks">
+      <li><a href="/"             class="{{ 'active' if active == 'home' else '' }}">Home</a></li>
+      <li><a href="/buyer/market" class="{{ 'active' if active == 'shop' else '' }}">Shop</a></li>
+    </ul>
+
+    <div class="gn-actions">
+      {% if user %}
+
+      <div class="gn-icon" title="Notifications" style="position:relative" id="gnNotifIcon">
+        🔔
+        <span class="gn-notif-dot" id="gnNotifDot"></span>
+        <div class="gn-notif-dropdown" id="gnNotifDropdown">
+          <div class="gn-notif-header">
+            <span>Notifications</span>
+            <a href="/buyer/notifications" style="font-size:11px;color:#FF2BAC;text-decoration:none">View All</a>
+          </div>
+          <div id="gnNotifList">
+            <div class="gn-notif-empty">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <a href="/messages/" class="gn-icon" title="Messages" id="gnMsgIcon">
+        💬
+        <span class="gn-badge" id="gnMsgBadge" style="display:none">0</span>
+      </a>
+
+      <a href="/buyer/cart" class="gn-icon" title="Cart">
+        🛒
+        <span class="gn-badge cart-count" id="cartBadge" style="display:none">0</span>
+      </a>
+
+      <div class="gn-profile-wrap" id="gnProfileWrap">
+        <button class="gn-user" id="gnProfileBtn">
+          👤 {{ buyer_name }} <span style="font-size:10px;margin-left:2px">▾</span>
+        </button>
+        <div class="gn-profile-dropdown" id="gnProfileDropdown">
+          <a href="/buyer/settings">⚙️ Settings</a>
+          <a href="/buyer/orders">📦 My Orders</a>
+          <a href="/buyer/address_book">📍 Addresses</a>
+          <div class="divider"></div>
+          <a href="/logout" class="logout-link">🚪 Logout</a>
+        </div>
+      </div>
+
+      {% else %}
+      <a href="/login"    style="font-size:13px;font-weight:600;color:#1a1a3e;text-decoration:none;padding:6px 12px">Login</a>
+      <a href="/register" class="gn-register">Register</a>
+      {% endif %}
+    </div>
+
+    <button class="gn-hamburger" id="gnHamburger" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+
+  </div>
+</nav>
+
+<script type="application/json" id="gnConfig">{"hasUser": {{ 'true' if user else 'false' }}}</script>
+<script>
+(function () {
+  var config = document.getElementById('gnConfig');
+  var hasUser = config ? JSON.parse(config.textContent).hasUser : false;
+
+  var hamburger = document.getElementById('gnHamburger');
+  if (hamburger) {
+    hamburger.addEventListener('click', function () {
+      var links = document.getElementById('gnLinks');
+      if (links) links.classList.toggle('open');
+    });
+  }
+
+  // Profile dropdown
+  var profileBtn = document.getElementById('gnProfileBtn');
+  var profileDropdown = document.getElementById('gnProfileDropdown');
+  if (profileBtn && profileDropdown) {
+    profileBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var isOpen = profileDropdown.classList.contains('show');
+      profileDropdown.classList.toggle('show', !isOpen);
+      profileBtn.classList.toggle('open', !isOpen);
+    });
+    document.addEventListener('click', function(e) {
+      var wrap = document.getElementById('gnProfileWrap');
+      if (wrap && !wrap.contains(e.target)) {
+        profileDropdown.classList.remove('show');
+        profileBtn.classList.remove('open');
+      }
+    });
+  }
+
+  if (hasUser) {
+    // Load notification count
+    fetch('/buyer/api/notifications/unread-count')
+      .then(function (r) { return r.ok ? r.json() : { count: 0 }; })
+      .then(function (d) {
+        if ((d.count || 0) > 0) {
+          var notifDot = document.getElementById('gnNotifDot');
+          if (notifDot) {
+            notifDot.classList.add('has-notif');
+          }
+        }
+      })
+      .catch(function () {});
+
+    // Load message unread count
+    fetch('/messages/api/unread-count')
+      .then(function (r) { return r.ok ? r.json() : { count: 0 }; })
+      .then(function (d) {
+        var badge = document.getElementById('gnMsgBadge');
+        if (badge && (d.count || 0) > 0) {
+          badge.textContent = d.count > 9 ? '9+' : d.count;
+          badge.style.display = 'flex';
+        }
+      })
+      .catch(function () {});
+
+    // Setup notification dropdown
+    var notifIcon = document.getElementById('gnNotifIcon');
+    var notifDropdown = document.getElementById('gnNotifDropdown');
+    var notifList = document.getElementById('gnNotifList');
+    
+    if (notifIcon && notifDropdown) {
+      notifIcon.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (notifDropdown.classList.contains('show')) {
+          notifDropdown.classList.remove('show');
+        } else {
+          // Load recent notifications
+          loadNotificationDropdown();
+          notifDropdown.classList.add('show');
+        }
+      });
+      
+      // Close dropdown when clicking outside
+      document.addEventListener('click', function(e) {
+        if (!notifIcon.contains(e.target)) {
+          notifDropdown.classList.remove('show');
+        }
+      });
+    }
+    
+    function loadNotificationDropdown() {
+      if (!notifList) return;
+      
+      notifList.innerHTML = '<div class="gn-notif-empty">Loading...</div>';
+      
+      fetch('/buyer/api/notifications?limit=5')
+        .then(function(r) { return r.ok ? r.json() : []; })
+        .then(function(notifications) {
+          if (!notifications.length) {
+            notifList.innerHTML = '<div class="gn-notif-empty">No notifications yet</div>';
+            return;
+          }
+          
+          var html = notifications.map(function(n) {
+            var imageHtml = n.product_image 
+              ? '<img src="' + n.product_image + '" alt="Product" class="gn-notif-img" onerror="this.style.display=\'none\';">'
+              : '<div class="gn-notif-icon">📦</div>';
+            
+            var timeAgo = getTimeAgo(n.created_at);
+            
+            return '<div class="gn-notif-item ' + (n.is_read ? '' : 'unread') + '" onclick="handleNotifClick(\'' + n.id + '\')">' +
+              imageHtml +
+              '<div class="gn-notif-content">' +
+                '<div class="gn-notif-title">' + (n.title || 'Notification') + '</div>' +
+                (n.product_name ? '<div class="gn-notif-text" style="color:#FF2BAC;font-weight:500">' + n.product_name + '</div>' : '') +
+                '<div class="gn-notif-text">' + (n.message || '') + '</div>' +
+                '<div class="gn-notif-time">' + timeAgo + '</div>' +
+              '</div>' +
+            '</div>';
+          }).join('');
+          
+          notifList.innerHTML = html;
+        })
+        .catch(function() {
+          notifList.innerHTML = '<div class="gn-notif-empty">Failed to load notifications</div>';
+        });
+    }
+    
+    function getTimeAgo(dateString) {
+      if (!dateString) return '';
+      var now = new Date();
+      var date = new Date(dateString);
+      var diffMs = now - date;
+      var diffMins = Math.floor(diffMs / 60000);
+      
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return diffMins + 'm ago';
+      if (diffMins < 1440) return Math.floor(diffMins / 60) + 'h ago';
+      return Math.floor(diffMins / 1440) + 'd ago';
+    }
+    
+    window.handleNotifClick = function(notifId) {
+      // Mark as read and redirect
+      fetch('/buyer/api/notifications/' + notifId + '/read', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+        }
+      }).then(function() {
+        // Redirect to notifications page
+        window.location.href = '/buyer/notifications';
+      }).catch(function() {
+        // Still redirect even if marking as read fails
+        window.location.href = '/buyer/notifications';
+      });
+    };
+  }
+}());
+</script>
+{% endmacro %}

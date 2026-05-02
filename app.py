@@ -22,15 +22,23 @@ def create_app():
     from routes.seller_routes import seller_bp
     from routes.buyer_routes import buyer_bp
     from routes.rider_routes import rider_bp
+    from routes.messages_routes import messages_bp
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(seller_bp, url_prefix='/seller')
     app.register_blueprint(buyer_bp, url_prefix='/buyer')
     app.register_blueprint(rider_bp, url_prefix='/rider')
+    app.register_blueprint(messages_bp)
 
     # Init CSRF AFTER blueprints are registered
     init_csrf(app)
+
+    # Ensure csrf_token is always available in templates even if init_csrf fails
+    @app.context_processor
+    def inject_csrf():
+        from security import generate_csrf_token
+        return {'csrf_token': generate_csrf_token}
     
     # Main routes (static pages)
     @app.route('/')
@@ -38,7 +46,7 @@ def create_app():
         from models.product_model import ProductModel
         product_model = ProductModel()
         products = product_model.get_all_active()
-        return __import__('flask').render_template('index.html', products=products)
+        return __import__('flask').render_template('buyer/index.html', products=products)
 
     @app.route('/api/products')
     def api_public_products():

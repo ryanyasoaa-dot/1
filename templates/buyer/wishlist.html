@@ -3,52 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luxe — Wishlist</title>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>My Wishlist — Grande</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
 </head>
 <body>
 
-<nav class="shop-navbar">
-    <div class="container d-flex align-items-center justify-content-between">
-        <a href="/" class="navbar-brand">Luxe</a>
-        <div class="d-flex gap-2">
-            <a href="/buyer/cart" class="nav-icon-btn">🛒<span class="nav-badge cart-count" style="display:none">0</span></a>
-            <a href="/buyer" class="nav-icon-btn">👤</a>
+{% from 'buyer/_navbar.html' import grande_navbar %}
+{{ grande_navbar(user=session.get('user'), active='wishlist') }}
+
+<div class="wishlist-page">
+    <div class="container">
+
+        <!-- Breadcrumb -->
+        <div class="shop-breadcrumb" style="margin-bottom:20px">
+            <a href="/">Home</a> / <a href="/buyer/market">Shop</a> / <span>Wishlist</span>
         </div>
-    </div>
-</nav>
 
-<div class="container py-4">
-    <nav class="shop-breadcrumb">
-        <a href="/buyer">My Account</a> / <span>Wishlist</span>
-    </nav>
+        <!-- Page header -->
+        <div class="wishlist-page-header">
+            <h1>
+                My Wishlist ❤️
+                <span class="wishlist-count-badge" id="wishlistCount">0</span>
+            </h1>
+            <p>Items you've saved to buy later</p>
+        </div>
 
-    <div class="row g-4">
-        <div class="col-12 col-md-3">
-            <div class="settings-card">
-                <div class="settings-nav d-flex flex-column gap-1">
-                    <a href="/buyer" class="nav-link"><span class="icon">🏠</span> Dashboard</a>
-                    <a href="/buyer/orders" class="nav-link"><span class="icon">📦</span> My Orders</a>
-                    <a href="/buyer/wishlist" class="nav-link active"><span class="icon">❤️</span> Wishlist</a>
-                    <a href="/buyer/address_book" class="nav-link"><span class="icon">📍</span> Addresses</a>
-                    <a href="/buyer/settings" class="nav-link"><span class="icon">⚙️</span> Settings</a>
-                    <a href="/logout" class="nav-link" style="color:#ef4444"><span class="icon">🚪</span> Logout</a>
+        <!-- Grid -->
+        <div class="wishlist-grid" id="wishlistGrid">
+            <!-- Skeleton loaders shown while JS runs -->
+            <div class="wc-skeleton">
+                <div class="skeleton-img"></div>
+                <div class="skeleton-body">
+                    <div class="skeleton-line w-80"></div>
+                    <div class="skeleton-line w-50"></div>
+                    <div class="skeleton-line w-40"></div>
+                </div>
+            </div>
+            <div class="wc-skeleton">
+                <div class="skeleton-img"></div>
+                <div class="skeleton-body">
+                    <div class="skeleton-line w-80"></div>
+                    <div class="skeleton-line w-50"></div>
+                    <div class="skeleton-line w-40"></div>
+                </div>
+            </div>
+            <div class="wc-skeleton">
+                <div class="skeleton-img"></div>
+                <div class="skeleton-body">
+                    <div class="skeleton-line w-80"></div>
+                    <div class="skeleton-line w-50"></div>
+                    <div class="skeleton-line w-40"></div>
                 </div>
             </div>
         </div>
 
-        <div class="col-12 col-md-9">
-            <div class="section-title">My Wishlist ❤️</div>
-            <div class="row g-2" id="wishlistGrid"></div>
-        </div>
     </div>
 </div>
 
+<!-- Footer (consistent with index.html) -->
+<footer class="footer">
+    <div class="container">
+        <div class="footer-content">
+            <div class="footer-column">
+                <h4>Grande</h4>
+                <ul>
+                    <li><a href="#">Our Story</a></li>
+                    <li><a href="#">Careers</a></li>
+                    <li><a href="#">Blog</a></li>
+                </ul>
+            </div>
+            <div class="footer-column">
+                <h4>Shop</h4>
+                <ul>
+                    <li><a href="/buyer/market">All Products</a></li>
+                    <li><a href="/buyer/market?category=Dresses+%26+Skirts">Dresses & Skirts</a></li>
+                    <li><a href="/buyer/market?category=Shoes+%26+Accessories">Shoes & Accessories</a></li>
+                </ul>
+            </div>
+            <div class="footer-column">
+                <h4>Customer Care</h4>
+                <ul>
+                    <li><a href="#">Contact Us</a></li>
+                    <li><a href="#">FAQ</a></li>
+                    <li><a href="#">Shipping Info</a></li>
+                    <li><a href="#">Returns</a></li>
+                </ul>
+            </div>
+            <div class="footer-column">
+                <h4>Account</h4>
+                <ul>
+                    {% if session.user %}
+                    <li><a href="/buyer/profile">My Profile</a></li>
+                    <li><a href="/buyer/orders">My Orders</a></li>
+                    <li><a href="/buyer/cart">Cart</a></li>
+                    {% else %}
+                    <li><a href="/login">Login</a></li>
+                    <li><a href="/register">Register</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+            <div class="footer-column">
+                <h4>Follow Us</h4>
+                <ul>
+                    <li><a href="#">Instagram</a></li>
+                    <li><a href="#">Facebook</a></li>
+                    <li><a href="#">TikTok</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <div class="payment-methods">
+                <span style="font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-right:16px">We accept:</span>
+                <div class="payment-icon">Visa</div>
+                <div class="payment-icon">MC</div>
+                <div class="payment-icon">GCash</div>
+                <div class="payment-icon">COD</div>
+            </div>
+            <div class="copyright">&copy; 2026 Grande Marketplace. All rights reserved.</div>
+        </div>
+    </div>
+</footer>
+
 <div class="shop-toast" id="shopToast"></div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
 <script src="{{ url_for('static', filename='js/shop.js') }}"></script>
+<script src="{{ url_for('static', filename='js/_wishlist_block.js') }}"></script>
 </body>
 </html>

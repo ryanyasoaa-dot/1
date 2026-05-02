@@ -3,6 +3,7 @@ from models.user_model import UserModel
 from services.auth_service import AuthService
 from services.file_upload_service import FileUploadService
 from security import rate_limit, generate_csrf_token
+import os
 
 auth_bp = Blueprint('auth', __name__)
 auth_service = AuthService()
@@ -26,6 +27,81 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for('index'))
+
+@auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+@rate_limit(max_calls=5, window_seconds=300)
+def forgot_password():
+    if request.method == 'GET':
+        return render_template('auth/forgot_password.html', csrf_token=generate_csrf_token())
+
+    data  = request.get_json() or request.form
+    email = (data.get('email') or '').strip().lower()
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+
+    user_model = UserModel()
+    user = user_model.get_by_email(email)
+    # Always return success to prevent email enumeration
+    if not user:
+        return jsonify({'success': True, 'message': 'If that email exists, a reset link has been sent.'})
+
+    import uuid, secrets
+    from datetime import datetime, timezone, timedelta
+    from supabase import create_client
+    sb = create_client(os.getenv('SUPABASE_URL'), os.getenv('SUPABASE_SERVICE_ROLE_KEY'))
+
+    token      = secrets.token_urlsafe(32)
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    sb.table('password_reset_tokens').insert({
+        'user_id':    user['id'],
+        'token':      token,
+        'expires_at': expires_at
+    }).execute()
+
+    reset_url = request.host_url.rstrip('/') + url_for('auth.reset_password', token=token)
+    try:
+        from services.email_service import send_password_reset
+        send_password_reset(
+            to_email=email,
+            name=f"{user.get('first_name','')} {user.get('last_name','')}".strip() or 'User',
+            reset_url=reset_url
+        )
+    except Exception as e:
+        print(f'Password reset email error: {e}')
+
+    return jsonify({'success': True, 'message': 'If that email exists, a reset link has been sent.'})
+
+
+@auth_bp.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    from supabase import create_client
+    from datetime import datetime, timezone
+    sb = create_client(os.getenv('SUPABASE_URL'), os.getenv('SUPABASE_SERVICE_ROLE_KEY'))
+
+    # Validate token
+    row = sb.table('password_reset_tokens').select('*').eq('token', token).eq('used', False).limit(1).execute()
+    if not row.data:
+        return render_template('auth/reset_password.html', token=token, error='This reset link is invalid or has already been used.', csrf_token=generate_csrf_token())
+
+    record = row.data[0]
+    expires_at = datetime.fromisoformat(record['expires_at'].replace('Z', '+00:00'))
+    if datetime.now(timezone.utc) > expires_at:
+        return render_template('auth/reset_password.html', token=token, error='This reset link has expired. Please request a new one.', csrf_token=generate_csrf_token())
+
+    if request.method == 'GET':
+        return render_template('auth/reset_password.html', token=token, error=None, csrf_token=generate_csrf_token())
+
+    data         = request.get_json() or request.form
+    new_password = (data.get('password') or '').strip()
+    if len(new_password) < 8:
+        return jsonify({'error': 'Password must be at least 8 characters'}), 400
+
+    from security import hash_password
+    user_model = UserModel()
+    user_model.update(record['user_id'], {'password': hash_password(new_password)})
+    sb.table('password_reset_tokens').update({'used': True}).eq('token', token).execute()
+
+    return jsonify({'success': True, 'message': 'Password reset successfully. You can now log in.'})
 
 def _handle_registration():
     try:

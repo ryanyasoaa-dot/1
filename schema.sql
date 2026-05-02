@@ -151,6 +151,47 @@ create table order_items (
 );
 
 -- ============================================
+-- NOTIFICATIONS TABLE
+-- ============================================
+create table notifications (
+    id          uuid        not null default gen_random_uuid(),
+    user_id     uuid        not null references users(id) on delete cascade,
+    type        text        not null check (type in ('order', 'promo', 'delivery', 'system')),
+    title       text        not null,
+    message     text        not null,
+    is_read     boolean     not null default false,
+    action_url  text,
+    created_at  timestamptz not null default now(),
+    primary key (id)
+);
+
+create index idx_notifications_user_id on notifications(user_id);
+create index idx_notifications_is_read on notifications(is_read);
+create index idx_notifications_created_at on notifications(created_at);
+
+-- ============================================
+-- REVIEWS TABLE
+-- ============================================
+create table reviews (
+    id          uuid        not null default gen_random_uuid(),
+    user_id     uuid        not null references users(id) on delete cascade,
+    product_id  uuid        not null references products(id) on delete cascade,
+    order_id    uuid        not null references orders(id) on delete cascade,
+    rating      integer     not null check (rating >= 1 and rating <= 5),
+    comment     text,
+    image_url   text,
+    created_at  timestamptz not null default now(),
+    updated_at  timestamptz not null default now(),
+    primary key (id),
+    unique (user_id, product_id, order_id)
+);
+
+create index idx_reviews_product_id on reviews(product_id);
+create index idx_reviews_user_id on reviews(user_id);
+create index idx_reviews_order_id on reviews(order_id);
+create index idx_reviews_rating on reviews(rating);
+
+-- ============================================
 -- ROW LEVEL SECURITY
 -- ============================================
 alter table users                 enable row level security;
@@ -318,6 +359,88 @@ create index idx_orders_rider_id         on orders(rider_id);
 create index idx_orders_status           on orders(status);
 create index idx_items_order_id          on order_items(order_id);
 create index idx_items_product_id        on order_items(product_id);
+
+-- ============================================
+-- PASSWORD RESET TOKENS TABLE
+-- ============================================
+create table if not exists password_reset_tokens (
+    id         uuid        not null default gen_random_uuid(),
+    user_id    uuid        not null references users(id) on delete cascade,
+    token      text        not null unique,
+    expires_at timestamptz not null,
+    used       boolean     not null default false,
+    created_at timestamptz not null default now(),
+    primary key (id)
+);
+create index if not exists idx_prt_token on password_reset_tokens(token);
+create index if not exists idx_prt_user  on password_reset_tokens(user_id);
+
+-- ============================================
+-- CONVERSATIONS TABLE
+-- ============================================
+create table if not exists conversations (
+    id            uuid        not null default gen_random_uuid(),
+    participant_1 uuid        not null references users(id) on delete cascade,
+    participant_2 uuid        not null references users(id) on delete cascade,
+    order_id      uuid        references orders(id) on delete set null,
+    last_message  text,
+    updated_at    timestamptz not null default now(),
+    created_at    timestamptz not null default now(),
+    primary key (id),
+    unique (participant_1, participant_2, order_id)
+);
+create index if not exists idx_conv_p1 on conversations(participant_1);
+create index if not exists idx_conv_p2 on conversations(participant_2);
+create index if not exists idx_conv_updated on conversations(updated_at desc);
+
+-- ============================================
+-- MESSAGES TABLE
+-- ============================================
+create table if not exists messages (
+    id              uuid        not null default gen_random_uuid(),
+    conversation_id uuid        not null references conversations(id) on delete cascade,
+    sender_id       uuid        not null references users(id) on delete cascade,
+    receiver_id     uuid        not null references users(id) on delete cascade,
+    content         text        not null,
+    attachment_url  text,
+    is_read         boolean     not null default false,
+    created_at      timestamptz not null default now(),
+    primary key (id)
+);
+create index if not exists idx_msg_conversation on messages(conversation_id);
+create index if not exists idx_msg_sender on messages(sender_id);
+create index if not exists idx_msg_receiver on messages(receiver_id);
+create index if not exists idx_msg_created on messages(created_at);
+create index if not exists idx_msg_unread on messages(receiver_id, is_read);
+
+-- ============================================
+-- RIDER EARNINGS TABLE
+-- ============================================
+create table if not exists rider_earnings (
+    id           uuid        not null default gen_random_uuid(),
+    rider_id     uuid        not null references users(id) on delete cascade,
+    order_id     uuid        not null references orders(id) on delete cascade,
+    amount       numeric(10, 2) not null default 0,
+    created_at   timestamptz not null default now(),
+    primary key (id),
+    unique (rider_id, order_id)
+);
+create index if not exists idx_rider_earnings_rider_id on rider_earnings(rider_id);
+create index if not exists idx_rider_earnings_order_id on rider_earnings(order_id);
+
+-- ============================================
+-- ADMIN SETTINGS TABLE (commission config)
+-- ============================================
+create table if not exists admin_settings (
+    key        text primary key,
+    value      text not null,
+    updated_at timestamptz not null default now()
+);
+-- Default commission rate 5%, rider rate ₱50 per delivery
+insert into admin_settings (key, value) values
+    ('commission_rate', '5'),
+    ('rider_rate',      '50')
+on conflict (key) do nothing;
 
 -- ============================================
 -- ALTER-ONLY MIGRATION BLOCK (NO RESET)

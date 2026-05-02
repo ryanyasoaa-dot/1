@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Support Inbox — Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <style>
+        .chat-shell { display: flex; height: calc(100vh - 60px); overflow: hidden; }
+        .conv-sidebar { width: 300px; flex-shrink: 0; background: #fff; border-right: 1px solid #e8e8f0; display: flex; flex-direction: column; }
+        .conv-header { padding: 14px 16px; border-bottom: 1px solid #f0f0f0; }
+        .conv-header h3 { font-size: 16px; font-weight: 700; color: #1a1a3e; margin: 0 0 10px; }
+        .role-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+        .rf-btn { padding: 3px 10px; border: 1px solid #e8e8f0; border-radius: 12px; font-size: 11px; cursor: pointer; background: #fff; transition: all .2s; }
+        .rf-btn.active { background: #1a1a3e; color: #fff; border-color: #1a1a3e; }
+        .conv-search { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; }
+        .conv-search input { width: 100%; padding: 7px 12px; border: 1px solid #e8e8f0; border-radius: 16px; font-size: 12px; outline: none; background: #f8f9fa; }
+        .conv-list { flex: 1; overflow-y: auto; }
+        .conv-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f8f9fa; transition: background .15s; }
+        .conv-item:hover { background: #f8f9fa; }
+        .conv-item.active { background: #fff0f8; }
+        .conv-avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg,#1a1a3e,#2d2d6e); display: flex; align-items: center; justify-content: center; font-size: 15px; color: #fff; font-weight: 700; flex-shrink: 0; }
+        .conv-info { flex: 1; min-width: 0; }
+        .conv-name { font-size: 13px; font-weight: 600; color: #1a1a3e; }
+        .conv-preview { font-size: 11px; color: #6c757d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .conv-badge { background: #FF2BAC; color: #fff; font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; padding: 0 3px; display: inline-flex; align-items: center; justify-content: center; }
+        .role-badge { font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 600; }
+        .role-buyer { background: #e3f2fd; color: #1565c0; }
+        .role-seller { background: #f3e5f5; color: #6a1b9a; }
+        .role-rider { background: #e8f5e9; color: #2e7d32; }
+
+        .chat-window { flex: 1; display: flex; flex-direction: column; background: #f0f2f5; }
+        .chat-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: #adb5bd; flex-direction: column; gap: 8px; }
+        .chat-topbar { background: #fff; padding: 12px 20px; border-bottom: 1px solid #e8e8f0; display: flex; align-items: center; gap: 12px; }
+        .chat-topbar-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg,#1a1a3e,#2d2d6e); display: flex; align-items: center; justify-content: center; font-size: 14px; color: #fff; font-weight: 700; }
+        .chat-topbar-name { font-size: 14px; font-weight: 600; color: #1a1a3e; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+        .msg-row { display: flex; align-items: flex-end; gap: 8px; }
+        .msg-row.sent { flex-direction: row-reverse; }
+        .msg-avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg,#FF2BAC,#FF9ED6); display: flex; align-items: center; justify-content: center; font-size: 11px; color: #fff; font-weight: 700; flex-shrink: 0; }
+        .msg-bubble { max-width: 60%; padding: 9px 13px; border-radius: 16px; font-size: 13px; line-height: 1.4; word-break: break-word; }
+        .msg-row.received .msg-bubble { background: #fff; color: #1a1a3e; border-bottom-left-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+        .msg-row.sent .msg-bubble { background: #1a1a3e; color: #fff; border-bottom-right-radius: 3px; }
+        .msg-time { font-size: 10px; color: #adb5bd; margin-top: 3px; }
+        .msg-row.sent .msg-time { text-align: right; }
+        .chat-input-area { background: #fff; padding: 10px 14px; border-top: 1px solid #e8e8f0; display: flex; gap: 8px; align-items: flex-end; }
+        .chat-input { flex: 1; border: 1px solid #e8e8f0; border-radius: 20px; padding: 9px 14px; font-size: 13px; outline: none; resize: none; max-height: 100px; font-family: inherit; }
+        .chat-input:focus { border-color: #1a1a3e; }
+        .chat-send-btn { width: 38px; height: 38px; border-radius: 50%; background: #1a1a3e; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #fff; flex-shrink: 0; }
+        .chat-send-btn:hover { background: #2d2d6e; }
+    </style>
+</head>
+<body>
+
+<div id="sidebarOverlay"></div>
+<button class="sidebar-toggle" id="sidebarToggle">&#9776;</button>
+
+<aside class="sidebar">
+    <div class="sidebar-logo">Luxe Admin</div>
+    <ul class="sidebar-menu">
+        <li><a href="/admin"><span class="icon">🏠</span> Dashboard</a></li>
+        <li class="menu-group">MANAGE</li>
+        <li><a href="/admin/applications"><span class="icon">📋</span> Applications</a></li>
+        <li><a href="/admin/users"><span class="icon">👥</span> Users</a></li>
+        <li><a href="/admin/sellers"><span class="icon">🏪</span> Sellers</a></li>
+        <li><a href="/admin/riders"><span class="icon">🏍️</span> Riders</a></li>
+        <li class="menu-group">STORE</li>
+        <li><a href="/admin/products"><span class="icon">📦</span> Products</a></li>
+        <li><a href="/admin/orders"><span class="icon">🛒</span> Orders</a></li>
+        <li class="menu-group">SUPPORT</li>
+        <li><a href="/messages/admin" class="active"><span class="icon">💬</span> Messages</a></li>
+        <li class="menu-group">SYSTEM</li>
+        <li><a href="/admin/reports"><span class="icon">🚩</span> Reports</a></li>
+        <li><a href="/admin/settings"><span class="icon">⚙️</span> Settings</a></li>
+    </ul>
+    <div class="sidebar-footer">
+        <div class="sidebar-user">👤 {{ session.user.name }}</div>
+        <a href="/logout" class="logout-link">🚪 Logout</a>
+    </div>
+</aside>
+
+<div class="main" style="padding:0;">
+    <div class="topbar">
+        <div class="topbar-title">Support Inbox</div>
+        <div class="topbar-right" id="unreadBadge">Admin Panel</div>
+    </div>
+
+    <div class="chat-shell">
+        <!-- Sidebar -->
+        <div class="conv-sidebar">
+            <div class="conv-header">
+                <h3>All Conversations</h3>
+                <div class="role-filters">
+                    <button class="rf-btn active" onclick="filterRole('all', this)">All</button>
+                    <button class="rf-btn" onclick="filterRole('buyer', this)">Buyers</button>
+                    <button class="rf-btn" onclick="filterRole('seller', this)">Sellers</button>
+                    <button class="rf-btn" onclick="filterRole('rider', this)">Riders</button>
+                </div>
+            </div>
+            <div class="conv-search">
+                <input type="text" id="convSearch" placeholder="Search…" oninput="filterSearch()">
+            </div>
+            <div class="conv-list" id="convList"><div style="padding:20px;text-align:center;color:#adb5bd;font-size:13px">Loading…</div></div>
+        </div>
+
+        <!-- Chat window -->
+        <div class="chat-window">
+            <div class="chat-empty" id="chatEmpty">
+                <div style="font-size:40px">💬</div>
+                <p style="font-size:14px">Select a conversation to respond</p>
+            </div>
+            <div id="chatActive" style="display:none;flex-direction:column;height:100%;">
+                <div class="chat-topbar">
+                    <div class="chat-topbar-avatar" id="chatTopAvatar">?</div>
+                    <div>
+                        <div class="chat-topbar-name" id="chatTopName">—</div>
+                        <div id="chatTopMeta" style="font-size:11px;color:#6c757d"></div>
+                    </div>
+                </div>
+                <div class="chat-messages" id="chatMessages"></div>
+                <div class="chat-input-area">
+                    <textarea class="chat-input" id="chatInput" rows="1" placeholder="Reply as support…"
+                        onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+                    <button class="chat-send-btn" onclick="sendMessage()">➤</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+<script>
+const ME = {{ session.user | tojson }};
+let activeConvId = null;
+let allConvs = [];
+let roleFilter = 'all';
+let pollTimer = null;
+let lastMsgId = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadConversations();
+    const params = new URLSearchParams(location.search);
+    if (params.get('conv')) setTimeout(() => openConversation(params.get('conv')), 500);
+});
+
+async function loadConversations() {
+    const res = await fetch('/messages/api/conversations').then(r => r.json()).catch(() => []);
+    allConvs = Array.isArray(res) ? res : [];
+    renderConvs();
+    const total = allConvs.reduce((s, c) => s + (c.unread_count || 0), 0);
+    const badge = document.getElementById('unreadBadge');
+    if (badge && total > 0) badge.textContent = `${total} unread`;
+}
+
+function renderConvs() {
+    const q = (document.getElementById('convSearch').value || '').toLowerCase();
+    let filtered = allConvs;
+    if (roleFilter !== 'all') {
+        filtered = filtered.filter(c => {
+            const p1 = c.p1 || {}; const p2 = c.p2 || {};
+            return p1.role === roleFilter || p2.role === roleFilter;
+        });
+    }
+    if (q) {
+        filtered = filtered.filter(c => {
+            const p1 = c.p1 || {}; const p2 = c.p2 || {};
+            const n1 = `${p1.first_name||''} ${p1.last_name||''}`.toLowerCase();
+            const n2 = `${p2.first_name||''} ${p2.last_name||''}`.toLowerCase();
+            return n1.includes(q) || n2.includes(q) || (c.last_message||'').toLowerCase().includes(q);
+        });
+    }
+    const list = document.getElementById('convList');
+    if (!filtered.length) { list.innerHTML = '<div style="padding:20px;text-align:center;color:#adb5bd;font-size:13px">No conversations found.</div>'; return; }
+    list.innerHTML = filtered.map(c => {
+        const p1 = c.p1 || {}; const p2 = c.p2 || {};
+        const n1 = `${p1.first_name||''} ${p1.last_name||''}`.trim();
+        const n2 = `${p2.first_name||''} ${p2.last_name||''}`.trim();
+        const label = `${n1} ↔ ${n2}`;
+        const unread = c.unread_count || 0;
+        return `
+        <div class="conv-item ${c.id === activeConvId ? 'active' : ''}" onclick="openConversation('${c.id}')">
+            <div class="conv-avatar">${(n1[0]||'?').toUpperCase()}</div>
+            <div class="conv-info">
+                <div class="conv-name">
+                    ${n1} <span class="role-badge role-${p1.role||''}">${p1.role||''}</span>
+                    ↔ ${n2} <span class="role-badge role-${p2.role||''}">${p2.role||''}</span>
+                </div>
+                <div class="conv-preview">${c.last_message || 'No messages yet'}</div>
+            </div>
+            ${unread > 0 ? `<span class="conv-badge">${unread}</span>` : ''}
+        </div>`;
+    }).join('');
+}
+
+function filterRole(role, btn) {
+    roleFilter = role;
+    document.querySelectorAll('.rf-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderConvs();
+}
+
+function filterSearch() { renderConvs(); }
+
+async function openConversation(convId) {
+    activeConvId = convId;
+    clearInterval(pollTimer);
+    lastMsgId = null;
+    document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
+
+    const conv = allConvs.find(c => c.id === convId);
+    const p1 = conv?.p1 || {}; const p2 = conv?.p2 || {};
+    const n1 = `${p1.first_name||''} ${p1.last_name||''}`.trim();
+    const n2 = `${p2.first_name||''} ${p2.last_name||''}`.trim();
+
+    document.getElementById('chatTopAvatar').textContent = (n1[0]||'?').toUpperCase();
+    document.getElementById('chatTopName').textContent = `${n1} ↔ ${n2}`;
+    document.getElementById('chatTopMeta').innerHTML =
+        `<span class="role-badge role-${p1.role||''}">${p1.role||''}</span> &nbsp;
+         <span class="role-badge role-${p2.role||''}">${p2.role||''}</span>`;
+
+    document.getElementById('chatEmpty').style.display = 'none';
+    document.getElementById('chatActive').style.display = 'flex';
+
+    await loadMessages(convId);
+    pollTimer = setInterval(() => pollMessages(convId), 3000);
+    history.replaceState(null, '', `/messages/admin?conv=${convId}`);
+    renderConvs();
+}
+
+async function loadMessages(convId) {
+    const msgs = await fetch(`/messages/api/conversations/${convId}/messages`).then(r => r.json()).catch(() => []);
+    renderMessages(msgs);
+    if (msgs.length) lastMsgId = msgs[msgs.length - 1].id;
+    scrollBottom();
+    loadConversations();
+}
+
+async function pollMessages(convId) {
+    if (!lastMsgId) return;
+    const msgs = await fetch(`/messages/api/conversations/${convId}/messages?after=${lastMsgId}`).then(r => r.json()).catch(() => []);
+    if (msgs.length) {
+        msgs.forEach(m => document.getElementById('chatMessages').appendChild(buildMsg(m)));
+        lastMsgId = msgs[msgs.length - 1].id;
+        scrollBottom();
+        loadConversations();
+    }
+}
+
+function renderMessages(msgs) {
+    const c = document.getElementById('chatMessages');
+    c.innerHTML = '';
+    msgs.forEach(m => c.appendChild(buildMsg(m)));
+}
+
+function buildMsg(m) {
+    const isSent = m.sender_id === ME.id;
+    const sender = m.sender || {};
+    const initial = (sender.first_name || '?')[0].toUpperCase();
+    const row = document.createElement('div');
+    row.className = `msg-row ${isSent ? 'sent' : 'received'}`;
+    row.innerHTML = `
+        ${!isSent ? `<div class="msg-avatar">${initial}</div>` : ''}
+        <div>
+            <div class="msg-bubble">${esc(m.content)}</div>
+            <div class="msg-time">${fmtTime(m.created_at)}</div>
+        </div>
+        ${isSent ? `<div class="msg-avatar" style="background:linear-gradient(135deg,#1a1a3e,#2d2d6e)">${initial}</div>` : ''}
+    `;
+    return row;
+}
+
+async function sendMessage() {
+    if (!activeConvId) return;
+    const input = document.getElementById('chatInput');
+    const content = input.value.trim();
+    if (!content) return;
+    input.value = '';
+    autoResize(input);
+    const res = await fetch(`/messages/api/conversations/${activeConvId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+        body: JSON.stringify({ content })
+    }).then(r => r.json()).catch(() => null);
+    if (res?.id) {
+        document.getElementById('chatMessages').appendChild(buildMsg(res));
+        lastMsgId = res.id;
+        scrollBottom();
+        loadConversations();
+    }
+}
+
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 100) + 'px'; }
+function scrollBottom() { const el = document.getElementById('chatMessages'); el.scrollTop = el.scrollHeight; }
+function csrfToken() { return document.querySelector('meta[name="csrf-token"]')?.content || ''; }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtTime(iso) { return iso ? new Date(iso).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'}) : ''; }
+</script>
+</body>
+</html>
