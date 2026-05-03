@@ -61,15 +61,8 @@ def create_app():
             p['image'] = primary.get('image_url') if primary else None
         return jsonify(products)
     
-    @app.route('/login', methods=['GET', 'POST'])
-    def login():
-        from routes.auth_routes import login as login_func
-        return login_func()
-    
-    @app.route('/logout')
-    def logout():
-        from routes.auth_routes import logout as logout_func
-        return logout_func()
+    # Note: /login and /logout are handled by auth_bp blueprint
+    # No need to duplicate them here
     
     return app
 

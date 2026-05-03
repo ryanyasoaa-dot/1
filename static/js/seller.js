@@ -115,8 +115,8 @@ async function loadOrders(filter = 'all') {
             <td>${formatDate(o.created_at)}</td>
             <td style="display:flex;gap:6px;flex-wrap:wrap">
                 <button class="btn btn-view" onclick="viewOrder('${o.id}')">View</button>
-                ${o.status === 'pending' ? `<button class="btn btn-approve" onclick="updateOrderStatus('${o.id}','processing')">Process</button>` : ''}
-                ${o.status === 'processing' ? `<button class="btn btn-view" onclick="updateOrderStatus('${o.id}','ready_for_pickup')">Ready for Pickup</button>` : ''}
+                ${o.status === 'pending' ? `<button class="btn btn-approve" onclick="updateOrderStatus(this, '${o.id}','processing')">Process</button>` : ''}
+                ${o.status === 'processing' ? `<button class="btn btn-view" onclick="updateOrderStatus(this, '${o.id}','ready_for_pickup')">Ready for Pickup</button>` : ''}
                 <button class="btn btn-msg" onclick="messageBuyer('${o.id}','${o.buyer_id || ''}','${(o.customer_name || '').replace(/'/g, '')}')">&#128172; Message</button>
             </td>
         </tr>
@@ -124,13 +124,16 @@ async function loadOrders(filter = 'all') {
 }
 
 function viewOrder(id) {
-    console.log('View order:', id);
+    window.location.href = '/seller/orders/' + id;
 }
 
-async function updateOrderStatus(id, status) {
+async function updateOrderStatus(btn, id, status) {
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
     const res = await API.seller.updateOrderStatus(id, status).catch(() => ({ error: 'Network error.' }));
     if (res.success) {
-        showToast('Order status updated.');
+        showToast('Status updated');
         if (document.getElementById('salesChart')) {
             loadDashboardStats();
             loadDashboardRecentOrders();
@@ -138,6 +141,8 @@ async function updateOrderStatus(id, status) {
             loadOrders();
         }
     } else {
+        btn.disabled = false;
+        btn.textContent = originalText;
         showToast(res.error || 'Failed to update order.', true);
     }
 }
@@ -154,7 +159,8 @@ async function messageBuyer(orderId, buyerId, buyerName) {
     const panel = document.getElementById('orderChatPanel');
     if (!panel) return;
 
-    document.getElementById('chatPanelBuyerName').textContent = buyerName || 'Buyer';
+    // Default display - will be updated from API response
+    document.getElementById('chatPanelBuyerName').textContent = buyerName || 'User';
     document.getElementById('chatPanelOrderId').textContent   = '#' + orderId.slice(0, 8);
     document.getElementById('chatPanelMessages').innerHTML    = '<div style="text-align:center;color:#adb5bd;padding:20px;font-size:13px">Loading...</div>';
     panel.classList.add('open');
@@ -162,6 +168,15 @@ async function messageBuyer(orderId, buyerId, buyerName) {
     const res = await API.messages.quickMessage(buyerId, orderId, false).catch(() => null);
     if (!res || !res.conversation_id) { showToast('Could not open chat.', true); return; }
     _chatConvId = res.conversation_id;
+
+    // Update other user name from API response (role-agnostic)
+    if (res.other_user) {
+        const other = res.other_user;
+        const fullName = (other.first_name || '') + ' ' + (other.last_name || '');
+        if (fullName.trim()) {
+            document.getElementById('chatPanelBuyerName').textContent = fullName.trim();
+        }
+    }
 
     const qrBtn = document.getElementById('quickReplyBtn');
     if (qrBtn) qrBtn.style.display = res.already_sent ? 'none' : 'inline-flex';
@@ -443,8 +458,8 @@ async function loadDashboardRecentOrders() {
             <td><span class="badge badge-${o.status}">${o.status}</span></td>
             <td>${formatDate(o.created_at)}</td>
             <td style="display:flex;gap:6px;flex-wrap:wrap">
-                ${o.status === 'pending'    ? `<button class="btn btn-approve" onclick="updateOrderStatus('${o.id}','processing')">Process</button>` : ''}
-                ${o.status === 'processing' ? `<button class="btn btn-view" onclick="updateOrderStatus('${o.id}','ready_for_pickup')">Ready</button>` : ''}
+                ${o.status === 'pending'    ? `<button class="btn btn-approve" onclick="updateOrderStatus(this,'${o.id}','processing')">Process</button>` : ''}
+                ${o.status === 'processing' ? `<button class="btn btn-view" onclick="updateOrderStatus(this,'${o.id}','ready_for_pickup')">Ready</button>` : ''}
                 <button class="btn btn-msg" onclick="messageBuyer('${o.id}','${o.buyer_id || ''}','${(o.customer_name || '').replace(/'/g, '')}')">&#128172; Message</button>
             </td>
         </tr>

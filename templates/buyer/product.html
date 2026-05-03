@@ -174,7 +174,7 @@
                     <div class="pd-label">Quantity</div>
                     <div class="pd-qty">
                         <button class="pd-qty-btn" onclick="changeQtyDetail(-1)">−</button>
-                        <span class="pd-qty-val" id="pdQtyVal">1</span>
+                        <input type="number" class="pd-qty-val" id="pdQtyVal" value="1" min="1" max="{{ product.total_stock if product else 1 }}" oninput="onQtyInput(this)" style="width:48px;text-align:center;font-size:15px;font-weight:600;border:none;outline:none;background:#fff;">
                         <button class="pd-qty-btn" onclick="changeQtyDetail(1)">+</button>
                     </div>
 
@@ -295,6 +295,8 @@
 let pdQty        = 1;
 let pdProduct    = null;
 let pdVariantMap = {}; // variantId -> { images: [], color: '', hex: '' }
+let currentStock = 0; // Track current available stock
+let currentVariantId = null; // Track selected variant
 
 // ── Color name → CSS color ────────────────────────────────────
 const COLOR_NAMES = {
@@ -325,8 +327,27 @@ function resolveColor(variant) {
 
 // ── Qty ───────────────────────────────────────────────────────
 function changeQtyDetail(d) {
-    pdQty = Math.max(1, pdQty + d);
-    document.getElementById('pdQtyVal').textContent = pdQty;
+    const newQty = pdQty + d;
+    if (newQty < 1) return;
+    if (newQty > currentStock) {
+        showToast(`Maximum stock limit (${currentStock}) reached`, 'warning');
+        return;
+    }
+    pdQty = newQty;
+    const qtyInput = document.getElementById('pdQtyVal');
+    qtyInput.value = pdQty;
+}
+
+// Also handle direct input
+function onQtyInput(e) {
+    let val = parseInt(e.target.value);
+    if (isNaN(val) || val < 0) val = 0;
+    if (val > currentStock) {
+        val = currentStock;
+        showToast(`Maximum stock limit is ${currentStock}`, 'warning');
+    }
+    pdQty = val;
+    e.target.value = val;
 }
 
 // ── Wishlist ──────────────────────────────────────────────────
@@ -337,21 +358,54 @@ function togglePdWishlist() {
     btn.classList.toggle('active', added);
 }
 
+// ── Cart button state ─────────────────────────────────────────
+function updateAddToCartButton() {
+    const addBtn = document.getElementById('pdAddCartBtn');
+    if (!addBtn) return;
+
+    if (currentStock <= 0) {
+        addBtn.disabled = true;
+        addBtn.textContent = 'Out of Stock';
+        addBtn.style.opacity = '0.6';
+        addBtn.style.cursor = 'not-allowed';
+    } else {
+        addBtn.disabled = false;
+        addBtn.textContent = '🛒 Add to Cart';
+        addBtn.style.opacity = '1';
+        addBtn.style.cursor = 'pointer';
+    }
+}
+
 // ── Select variant ────────────────────────────────────────────
 function selectVariant(variantId, el) {
+    // Update active state on swatches
     document.querySelectorAll('.pd-swatch').forEach(s => s.classList.remove('active'));
     el.classList.add('active');
     document.getElementById('selectedVariant').value = variantId;
+    currentVariantId = variantId;
 
     const v = pdProduct.product_variants?.find(v => v.id === variantId);
     if (v) {
-        // Update stock
-        document.getElementById('pdStock').innerHTML = v.stock > 0
-            ? `<span style="color:#10b981;font-weight:600">✓ In Stock (${v.stock} available)</span>`
-            : `<span style="color:#e74c3c;font-weight:600">✗ Out of Stock</span>`;
+        currentStock = v.stock || 0;
+        // Update stock display
+        const stockEl = document.getElementById('pdStock');
+        if (currentStock > 0) {
+            stockEl.innerHTML = `<span style="color:#10b981;font-weight:600">✓ In Stock (${currentStock} available)</span>`;
+        } else {
+            stockEl.innerHTML = `<span style="color:#e74c3c;font-weight:600">✗ Out of Stock</span>`;
+        }
+        // Update quantity input max
+        const qtyInput = document.getElementById('pdQtyVal');
+        qtyInput.max = currentStock;
+        // Reset quantity to 1 (or 0 if out of stock)
+        pdQty = currentStock > 0 ? 1 : 0;
+        qtyInput.value = pdQty;
         // Update carousel images for this variant
         updateCarouselImages(variantId);
     }
+
+    // Update Add to Cart button state
+    updateAddToCartButton();
 }
 
 // ── Carousel ──────────────────────────────────────────────────
@@ -369,8 +423,11 @@ function buildCarouselSlides(images) {
     const track      = document.getElementById('pdThumbTrack');
     const nav        = document.getElementById('pdThumbNav');
 
-    // Dispose any existing Bootstrap instance so it re-reads the new slides
-    bootstrap.Carousel.getInstance(carouselEl)?.dispose();
+    // Dispose existing Bootstrap carousel instance properly
+    try {
+        const existing = bootstrap.Carousel.getInstance(carouselEl);
+        if (existing) existing.dispose();
+    } catch(e) {}
 
     if (!images.length) {
         inner.innerHTML = `<div class="carousel-item active"><div class="placeholder-icon">🛍️</div></div>`;
@@ -378,52 +435,58 @@ function buildCarouselSlides(images) {
         nav.style.display = 'none';
         carouselEl.querySelectorAll('.carousel-control-prev,.carousel-control-next')
             .forEach(b => b.style.display = 'none');
-        bootstrap.Carousel.getOrCreateInstance(carouselEl, { ride: false, wrap: true });
         return;
     }
 
-    // Build all carousel slides (one per image)
-    inner.innerHTML = images.map((img, i) => {
-        const url = img.startsWith('/') ? img : '/' + img;
-        return `<div class="carousel-item${i === 0 ? ' active' : ''}">
-                    <img src="${url}" alt="product image ${i + 1}">
-                </div>`;
-    }).join('');
+    // Build carousel slides
+    inner.innerHTML = images.map((img, i) => `
+        <div class="carousel-item${i === 0 ? ' active' : ''}">
+            <img src="${img}" alt="product image ${i + 1}" onerror="this.parentElement.innerHTML='🛍️'">
+        </div>
+    `).join('');
 
     // Build thumbnails
-    track.innerHTML = images.map((img, i) => {
-        const url = img.startsWith('/') ? img : '/' + img;
-        return `<div class="pd-thumb${i === 0 ? ' active' : ''}" data-idx="${i}">
-                    <img src="${url}" alt="thumb ${i + 1}">
-                </div>`;
-    }).join('');
+    track.innerHTML = images.map((img, i) => `
+        <div class="pd-thumb${i === 0 ? ' active' : ''}" data-idx="${i}">
+            <img src="${img}" alt="thumb ${i + 1}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2264%22 height=%2264%22><rect fill=%22%23f8f9fa%22 width=%22100%25%22 height=%22100%25%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22>🛍️</text></svg>'">
+        </div>
+    `).join('');
 
-    // Thumbnail click via event delegation
-    track.onclick = (e) => {
-        const thumb = e.target.closest('.pd-thumb');
-        if (!thumb) return;
-        const idx = parseInt(thumb.dataset.idx);
-        setActiveThumb(idx);
-        bootstrap.Carousel.getInstance(carouselEl)?.to(idx);
-    };
+    // Attach click handlers to thumbnails
+    track.querySelectorAll('.pd-thumb').forEach((thumb, idx) => {
+        thumb.onclick = () => {
+            setActiveThumb(idx);
+            const carousel = bootstrap.Carousel.getInstance(carouselEl);
+            if (carousel) carousel.to(idx);
+        };
+    });
 
-    // Show/hide main arrows
+    // Show/hide navigation arrows
+    const hasMultiple = images.length > 1;
     carouselEl.querySelectorAll('.carousel-control-prev,.carousel-control-next')
-        .forEach(b => b.style.display = images.length > 1 ? '' : 'none');
+        .forEach(b => b.style.display = hasMultiple ? '' : 'none');
 
-    // Show thumbnail strip; scroll arrows only when > 5
+    // Show thumbnail navigation
     nav.style.display = 'flex';
     document.getElementById('pdThumbPrev').style.display = images.length > MAX_VISIBLE_THUMBS ? '' : 'none';
     document.getElementById('pdThumbNext').style.display = images.length > MAX_VISIBLE_THUMBS ? '' : 'none';
     updateThumbScroll();
 
-    // Init Bootstrap carousel fresh on the new slides
-    bootstrap.Carousel.getOrCreateInstance(carouselEl, { ride: false, wrap: true });
+    // Initialize Bootstrap carousel
+    const carousel = bootstrap.Carousel.getOrCreateInstance(carouselEl, {
+        ride: false,
+        wrap: true,
+        interval: false
+    });
 
-    // Remove any previously attached slid listener, then re-attach
+    // Ensure we start at first slide
+    setTimeout(() => carousel.to(0), 50);
+
+    // Reattach slide event listener
     carouselEl.removeEventListener('slid.bs.carousel', onCarouselSlid);
     carouselEl.addEventListener('slid.bs.carousel', onCarouselSlid);
 }
+
 
 function onCarouselSlid(e) {
     const items = document.querySelectorAll('#carouselInner .carousel-item');
@@ -476,47 +539,52 @@ function renderProduct(p) {
     set('pdDesc',     p.description || 'No description available.');
     set('pdPrice',    formatCurrency(p.price));
 
-    const seller = p.seller ? `${p.seller.first_name||''} ${p.seller.last_name||''}`.trim() : '';
-    set('pdSeller', seller ? `by <strong>${seller}</strong>` : '');
+     const seller = p.seller ? `${p.seller.first_name||''} ${p.seller.last_name||''}`.trim() : '';
+     set('pdSeller', seller ? `by <strong>${seller}</strong>` : '');
 
-    const stock = p.total_stock ?? 0;
-    set('pdStock', stock > 0
-        ? `<span style="color:#10b981;font-weight:600">✓ In Stock (${stock} available)</span>`
-        : `<span style="color:#e74c3c;font-weight:600">✗ Out of Stock</span>`);
+     // Get variants early
+     const variants = p.product_variants || [];
 
-    // Build variant → images map
-    const allImages = p.product_images || [];
-    pdVariantMap = {};
+     // Build variant → images map (variant-specific + general, sorted by display_order)
+     const allImages = p.product_images || [];
+     pdVariantMap = {};
 
-    // All image URLs (used as fallback when no variant-specific or general images exist)
-    const allUrls = allImages
-        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
-        .map(img => img.image_url);
+     // Sort all images once by display_order
+     const sortedImages = [...allImages].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
 
-    // General images (not tied to any variant)
-    pdVariantMap['general'] = allImages
-        .filter(img => !img.variant_id)
-        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
-        .map(img => img.image_url);
+     // General images: only those not tied to any variant
+     pdVariantMap['general'] = sortedImages
+         .filter(img => !img.variant_id)
+         .map(img => img.image_url);
 
-    // If no general images, fall back to all images
-    if (!pdVariantMap['general'].length) pdVariantMap['general'] = allUrls;
+     // For each variant: its images + general images (all sorted)
+     variants.forEach(v => {
+         pdVariantMap[v.id] = sortedImages
+             .filter(img => img.variant_id === v.id || img.variant_id === null)
+             .map(img => img.image_url);
+     });
 
-    // Per-variant images
-    allImages.forEach(img => {
-        if (img.variant_id) {
-            if (!pdVariantMap[img.variant_id]) pdVariantMap[img.variant_id] = [];
-            pdVariantMap[img.variant_id].push(img.image_url);
-        }
-    });
+     // For products without variants, general = all images
+     if (variants.length === 0) {
+         pdVariantMap['general'] = sortedImages.map(img => img.image_url);
+     }
 
-    // For any variant with no images, fall back to general
-    (p.product_variants || []).forEach(v => {
-        if (!pdVariantMap[v.id]?.length) pdVariantMap[v.id] = pdVariantMap['general'];
-    });
+     // Determine initial stock and display
+     let initialStock = 0;
+     if (variants.length) {
+         initialStock = variants[0].stock || 0;
+     } else {
+         initialStock = p.total_stock || 0;
+     }
+     currentStock = initialStock;
+     const stockEl = document.getElementById('pdStock');
+     if (currentStock > 0) {
+         stockEl.innerHTML = `<span style="color:#10b981;font-weight:600">✓ In Stock (${currentStock} available)</span>`;
+     } else {
+         stockEl.innerHTML = `<span style="color:#e74c3c;font-weight:600">✗ Out of Stock</span>`;
+     }
 
     // Build variants swatches
-    const variants = p.product_variants || [];
     if (variants.length) {
         document.getElementById('pdVariantsSection').style.display = 'block';
         const swatchesEl = document.getElementById('pdSwatches');
@@ -531,16 +599,28 @@ function renderProduct(p) {
                         <span class="pd-swatch-label">${v.value}</span>
                     </div>`;
         }).join('');
-        // Pre-select first variant
-        document.getElementById('selectedVariant').value = variants[0].id;
-        // Show images for first variant (or general if none)
-        const firstVarImages = pdVariantMap[variants[0].id]?.length
-            ? pdVariantMap[variants[0].id]
-            : pdVariantMap['general'];
-        buildCarouselSlides(firstVarImages || []);
+
+        // Pre-select first variant and set its stock
+        const firstVariant = variants[0];
+        document.getElementById('selectedVariant').value = firstVariant.id;
+        currentVariantId = firstVariant.id;
+
+        // Show images for first variant (variant-specific + general)
+        const firstVarImages = pdVariantMap[firstVariant.id] || pdVariantMap['general'] || [];
+        buildCarouselSlides(firstVarImages);
     } else {
+        // No variants - use general images only
         buildCarouselSlides(pdVariantMap['general'] || []);
     }
+
+    // Quantity setup
+    const qtyInput = document.getElementById('pdQtyVal');
+    pdQty = currentStock > 0 ? 1 : 0;
+    qtyInput.value = pdQty;
+    qtyInput.max = currentStock;
+
+    // Update Add to Cart button state
+    updateAddToCartButton();
 
     // Add to cart
     document.getElementById('pdAddCartBtn').onclick = () => {
@@ -548,12 +628,24 @@ function renderProduct(p) {
         addToCart({ id: p.id, name: p.name }, pdQty, variantId);
     };
 
-    // Buy Now — add to cart then redirect to checkout
+    // Buy Now — add to cart then redirect to checkout (only if successful)
     document.getElementById('pdCheckoutBtn').onclick = async (e) => {
         e.preventDefault();
         const variantId = document.getElementById('selectedVariant')?.value || null;
-        await addToCart({ id: p.id, name: p.name }, pdQty, variantId);
-        window.location.href = '/buyer/checkout';
+        try {
+            const res = await API.buyer.addToCart({
+                product_id: p.id,
+                variant_id: variantId,
+                quantity: pdQty
+            });
+            if (res.success) {
+                window.location.href = '/buyer/checkout';
+            } else {
+                showToast(res.error || 'Failed to add to cart', true);
+            }
+        } catch (err) {
+            showToast('Network error', true);
+        }
     };
 
     // Wishlist state

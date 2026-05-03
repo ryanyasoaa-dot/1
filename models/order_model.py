@@ -13,20 +13,33 @@ class OrderModel:
     def get_by_id(self, order_id):
         """Get order by ID with related data"""
         result = self.supabase.table('orders').select(
-            '*, buyer:users!orders_buyer_id_fkey(first_name, last_name, email), rider:users!orders_rider_id_fkey(first_name, last_name), order_items(*, product:products(*), variant:product_variants(*))'
+            '*, order_items(*, product:products(*), variant:product_variants(*))'
         ).eq('id', order_id).single().execute()
-        return result.data if result.data else None
+        order = result.data if result.data else None
+        if order:
+            # Fetch buyer and rider separately to avoid FK relationship issues
+            if order.get('buyer_id'):
+                buyer = self.supabase.table('users').select('first_name, last_name, email').eq('id', order['buyer_id']).single().execute()
+                order['buyer'] = buyer.data if buyer.data else None
+            if order.get('rider_id'):
+                rider = self.supabase.table('users').select('first_name, last_name').eq('id', order['rider_id']).single().execute()
+                order['rider'] = rider.data if rider.data else None
+        return order
     
     def get_by_buyer(self, buyer_id):
         """Get all orders for a buyer"""
         result = self.supabase.table('orders').select(
-            '*, rider:users!orders_rider_id_fkey(first_name, last_name), order_items(*, product:products(*), variant:product_variants(*))'
+            '*, order_items(*, product:products(*), variant:product_variants(*))'
         ).eq('buyer_id', buyer_id).order('created_at', desc=True).execute()
         orders = result.data if result.data else []
         for order in orders:
             items = order.get('order_items') or []
             order['items_count'] = sum(int(i.get('quantity', 0) or 0) for i in items)
             order['total'] = order.get('total_amount', 0)
+            # Fetch rider separately to avoid FK relationship issues
+            if order.get('rider_id'):
+                rider = self.supabase.table('users').select('first_name, last_name').eq('id', order['rider_id']).single().execute()
+                order['rider'] = rider.data if rider.data else None
         return orders
     
     def get_by_seller(self, seller_id):
@@ -38,9 +51,9 @@ class OrderModel:
         
         product_ids = [p['id'] for p in product_result.data]
         
-        # Get orders containing these products
+        # Get orders containing these products (without embedded relationships to avoid FK issues)
         result = self.supabase.table('order_items').select(
-            '*, product:products(name, seller_id), variant:product_variants(value, variant_type), order:orders(*, buyer:users!orders_buyer_id_fkey(first_name, last_name), rider:users!orders_rider_id_fkey(first_name, last_name))'
+            '*, product:products(name, seller_id), variant:product_variants(value, variant_type), order:orders(*)'
         ).in_('product_id', product_ids).execute()
         
         # Group by order
@@ -55,8 +68,16 @@ class OrderModel:
                     }
                 orders_map[order_id]['items'].append(item)
         orders = list(orders_map.values())
+        
+        # Fetch buyer info for each order
         for order in orders:
-            order['customer_name'] = f"{(order.get('buyer') or {}).get('first_name', '')} {(order.get('buyer') or {}).get('last_name', '')}".strip()
+            buyer_id = order.get('buyer_id')
+            if buyer_id:
+                buyer = self.supabase.table('users').select('first_name, last_name, email').eq('id', buyer_id).single().execute()
+                if buyer.data:
+                    order['buyer'] = buyer.data
+                    order['customer_name'] = f"{buyer.data.get('first_name', '')} {buyer.data.get('last_name', '')}".strip()
+                    order['customer_email'] = buyer.data.get('email', '')
             order['items_count'] = sum(int(i.get('quantity', 0) or 0) for i in order.get('items', []))
             order['total'] = order.get('total_amount', 0)
         return orders
@@ -131,16 +152,28 @@ class OrderModel:
     def get_ready_for_pickup_orders(self):
         """Orders available for rider pickup"""
         result = self.supabase.table('orders').select(
-            '*, buyer:users!orders_buyer_id_fkey(first_name, last_name), order_items(*, product:products(name, seller_id))'
+            '*, order_items(*, product:products(name, seller_id))'
         ).eq('status', 'ready_for_pickup').is_('rider_id', 'null').order('created_at', desc=True).execute()
-        return result.data if result.data else []
+        orders = result.data if result.data else []
+        # Fetch buyer separately for each order
+        for order in orders:
+            if order.get('buyer_id'):
+                buyer = self.supabase.table('users').select('first_name, last_name').eq('id', order['buyer_id']).single().execute()
+                order['buyer'] = buyer.data if buyer.data else None
+        return orders
 
     def get_assigned_orders_for_rider(self, rider_id):
         """Orders already accepted by this rider"""
         result = self.supabase.table('orders').select(
-            '*, buyer:users!orders_buyer_id_fkey(first_name, last_name), order_items(*, product:products(name, seller_id))'
+            '*, order_items(*, product:products(name, seller_id))'
         ).eq('rider_id', rider_id).in_('status', ['in_transit', 'delivered']).order('created_at', desc=True).execute()
-        return result.data if result.data else []
+        orders = result.data if result.data else []
+        # Fetch buyer separately for each order
+        for order in orders:
+            if order.get('buyer_id'):
+                buyer = self.supabase.table('users').select('first_name, last_name').eq('id', order['buyer_id']).single().execute()
+                order['buyer'] = buyer.data if buyer.data else None
+        return orders
 
     def assign_rider(self, order_id, rider_id):
         """Assign rider and move status to in_transit (only from ready_for_pickup)"""
@@ -331,10 +364,17 @@ class OrderModel:
     
     def get_all(self):
         """Get all orders (admin view)"""
-        result = self.supabase.table('orders').select(
-            '*, buyer:users!orders_buyer_id_fkey(first_name, last_name, email), rider:users!orders_rider_id_fkey(first_name, last_name)'
-        ).order('created_at', desc=True).execute()
-        return result.data if result.data else []
+        result = self.supabase.table('orders').select('*').order('created_at', desc=True).execute()
+        orders = result.data if result.data else []
+        # Fetch buyer and rider separately to avoid FK relationship issues
+        for order in orders:
+            if order.get('buyer_id'):
+                buyer = self.supabase.table('users').select('first_name, last_name, email').eq('id', order['buyer_id']).single().execute()
+                order['buyer'] = buyer.data if buyer.data else None
+            if order.get('rider_id'):
+                rider = self.supabase.table('users').select('first_name, last_name').eq('id', order['rider_id']).single().execute()
+                order['rider'] = rider.data if rider.data else None
+        return orders
 
     # Cart operations
     def get_cart_items(self, user_id):

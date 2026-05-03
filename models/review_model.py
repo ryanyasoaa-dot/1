@@ -36,13 +36,19 @@ class ReviewModel:
 
     def get_product_reviews(self, product_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         """Get all reviews for a product with user info."""
-        result = self.supabase.table('reviews').select(
-            '*, user:users!reviews_user_id_fkey(id, first_name, last_name)'
+        result = self.supabase.table('reviews').select('*'
         ).eq('product_id', product_id).order('created_at', desc=True).limit(limit).execute()
         
         reviews = []
         for row in (result.data or []):
-            user = row.get('user') or {}
+            # Fetch user data separately to avoid FK relationship issues
+            user = None
+            if row.get('user_id'):
+                user_result = self.supabase.table('users').select('id, first_name, last_name').eq('id', row['user_id']).single().execute()
+                user = user_result.data if user_result.data else None
+            
+            user_name = f"{(user or {}).get('first_name', '')} {(user or {}).get('last_name', '')}".strip() or 'Anonymous'
+            
             reviews.append({
                 'id': row['id'],
                 'user_id': row['user_id'],
@@ -53,20 +59,24 @@ class ReviewModel:
                 'image_url': row.get('image_url'),
                 'created_at': row['created_at'],
                 'updated_at': row.get('updated_at'),
-                'user_name': f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or 'Anonymous',
-                'user_initial': (user.get('first_name', '')[:1] or 'A').upper()
+                'user_name': user_name,
+                'user_initial': (user_name[:1] or 'A').upper()
             })
         return reviews
 
     def get_user_reviews(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         """Get all reviews by a user."""
-        result = self.supabase.table('reviews').select(
-            '*, product:products(id, name, seller_id)'
+        result = self.supabase.table('reviews').select('*'
         ).eq('user_id', user_id).order('created_at', desc=True).limit(limit).execute()
         
         reviews = []
         for row in (result.data or []):
-            product = row.get('product') or {}
+            # Fetch product data separately to avoid FK relationship issues
+            product = None
+            if row.get('product_id'):
+                product_result = self.supabase.table('products').select('id, name, seller_id').eq('id', row['product_id']).single().execute()
+                product = product_result.data if product_result.data else None
+            
             reviews.append({
                 'id': row['id'],
                 'user_id': row['user_id'],
@@ -77,8 +87,8 @@ class ReviewModel:
                 'image_url': row.get('image_url'),
                 'created_at': row['created_at'],
                 'updated_at': row.get('updated_at'),
-                'product_name': product.get('name', 'Unknown Product'),
-                'product_id': product.get('id')
+                'product_name': product.get('name', 'Unknown Product') if product else 'Unknown Product',
+                'product_id': product.get('id') if product else row['product_id']
             })
         return reviews
 
@@ -124,10 +134,18 @@ class ReviewModel:
 
     def get_review_by_id(self, review_id: str) -> Optional[Dict[str, Any]]:
         """Get a specific review by ID."""
-        result = self.supabase.table('reviews').select(
-            '*, user:users!reviews_user_id_fkey(id, first_name, last_name), product:products(id, name, seller_id)'
+        result = self.supabase.table('reviews').select('*'
         ).eq('id', review_id).single().execute()
-        return result.data if result.data else None
+        review = result.data if result.data else None
+        if review:
+            # Fetch user and product data separately to avoid FK relationship issues
+            if review.get('user_id'):
+                user_result = self.supabase.table('users').select('id, first_name, last_name').eq('id', review['user_id']).single().execute()
+                review['user'] = user_result.data if user_result.data else None
+            if review.get('product_id'):
+                product_result = self.supabase.table('products').select('id, name, seller_id').eq('id', review['product_id']).single().execute()
+                review['product'] = product_result.data if product_result.data else None
+        return review
 
     def update_review(self, review_id: str, user_id: str, rating: int = None, 
                       comment: str = None, image_url: str = None) -> bool:

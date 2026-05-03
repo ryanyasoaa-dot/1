@@ -139,3 +139,17 @@ textarea.form-input { resize: vertical; min-height: 80px; }
     .earnings-grid  { grid-template-columns: 1fr 1fr; }
     .time-grid      { grid-template-columns: 1fr; }
 }
+
+/* Spinner animation for status updates */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #fff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}

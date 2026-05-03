@@ -1,5 +1,6 @@
 import smtplib
 import os
+import secrets
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -174,3 +175,46 @@ def send_password_reset(to_email: str, name: str, reset_url: str) -> bool:
     </html>'''
 
     return _send(to_email, 'Reset Your Password — Grande', html)
+
+
+def send_otp_email(to_email: str, name: str, otp: str) -> bool:
+    """Send OTP verification email."""
+    html = f'''
+    <!DOCTYPE html>
+    <html>
+    <body style="margin:0;padding:0;background:#f4f4f8;font-family:Inter,Arial,sans-serif">
+    <div style="max-width:520px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08)">
+
+      <div style="background:linear-gradient(135deg,#FF2BAC,#FF6BCE);padding:32px 40px;text-align:center">
+        <h1 style="color:#fff;margin:0;font-size:28px;font-weight:700">Grande</h1>
+        <p style="color:rgba(255,255,255,.85);margin:6px 0 0;font-size:14px">Email Verification</p>
+      </div>
+
+      <div style="padding:32px 40px">
+        <p style="font-size:16px;color:#1a1a3e;margin:0 0 8px">Hi <strong>{name}</strong>,</p>
+        <p style="font-size:14px;color:#6c757d;margin:0 0 28px">
+          Thank you for registering! Please verify your email address by entering the code below.
+          This code expires in <strong>10 minutes</strong>.
+        </p>
+
+        <div style="text-align:center;margin-bottom:28px">
+          <div style="display:inline-block;background:#f8f9fa;border:2px dashed #FF2BAC;border-radius:12px;padding:20px 40px">
+            <span style="font-size:36px;font-weight:700;letter-spacing:8px;color:#FF2BAC;font-family:monospace">{otp}</span>
+          </div>
+        </div>
+
+        <p style="font-size:12px;color:#adb5bd;margin:0">
+          If you didn't request this, you can safely ignore this email.
+        </p>
+      </div>
+
+      <div style="background:#f8f9fa;padding:20px 40px;text-align:center;border-top:1px solid #f0f0f0">
+        <p style="font-size:12px;color:#adb5bd;margin:0">
+          &copy; 2025 Grande Marketplace &mdash; This is an automated email, please do not reply.
+        </p>
+      </div>
+    </div>
+    </body>
+    </html>'''
+
+    return _send(to_email, 'Your Verification Code — Grande', html)

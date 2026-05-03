@@ -65,6 +65,7 @@ async function updateStatus(id, status, notes = '') {
 let adminSalesChart  = null;
 let adminStatusChart = null;
 let _commissionRate  = 5;
+let _earningsData    = [];  // Store earnings data for export
 
 async function loadDashboard() {
     // Load summary + commission in parallel
@@ -128,6 +129,117 @@ async function loadDashboard() {
             `).join('');
         }
     }
+
+    // Load detailed earnings table
+    loadEarningsDetail();
+}
+
+// ── Earnings Detail Functions ──────────────────────────────────
+async function loadEarningsDetail() {
+    const loading = document.getElementById('earningsLoading');
+    const empty = document.getElementById('earningsEmpty');
+    const tableContainer = document.getElementById('earningsTableContainer');
+    const summaryStats = document.getElementById('earningsSummaryStats');
+    
+    // Show loading
+    loading.style.display = 'block';
+    empty.style.display = 'none';
+    tableContainer.style.display = 'none';
+    summaryStats.style.display = 'none';
+    
+    // Get filter values
+    const startDate = document.getElementById('filterStartDate')?.value || '';
+    const endDate = document.getElementById('filterEndDate')?.value || '';
+    
+    try {
+        const response = await API.admin.getEarningsDetail({ start_date: startDate, end_date: endDate });
+        const { earnings, summary, commission_rate } = response;
+        
+        _earningsData = earnings;
+        _commissionRate = commission_rate;
+        
+        loading.style.display = 'none';
+        
+        if (!earnings.length) {
+            empty.style.display = 'block';
+            return;
+        }
+        
+        // Show summary stats
+        summaryStats.style.display = 'flex';
+        document.getElementById('summaryTotalOrders').textContent = summary.total_orders || 0;
+        document.getElementById('summaryTotalItems').textContent = summary.total_items || 0;
+        document.getElementById('summaryTotalCommission').textContent = formatCurrency(summary.total_commission || 0);
+        document.getElementById('summaryCommissionRate').textContent = `${commission_rate}%`;
+        
+        // Render table
+        tableContainer.style.display = 'block';
+        renderEarningsTable(earnings);
+        
+    } catch (error) {
+        console.error('Error loading earnings:', error);
+        loading.style.display = 'none';
+        empty.style.display = 'block';
+        showToast('Failed to load earnings data.', true);
+    }
+}
+
+function renderEarningsTable(earnings) {
+    const tbody = document.getElementById('earningsTableBody');
+    if (!tbody) return;
+    
+    let totalAmount = 0;
+    let totalCommission = 0;
+    
+    tbody.innerHTML = earnings.map(e => {
+        totalAmount += parseFloat(e.total_amount || 0);
+        totalCommission += parseFloat(e.commission || 0);
+        
+        const shortOrderId = (e.order_id || '').slice(0, 8).toUpperCase();
+        const deliveredDate = formatDate(e.delivered_date);
+        
+        return `
+        <tr>
+            <td><strong>#${shortOrderId}</strong></td>
+            <td>${e.seller_name || '—'}</td>
+            <td>${e.product_name || '—'}</td>
+            <td class="text-center">${e.quantity || 0}</td>
+            <td class="text-end">${formatCurrency(e.total_amount)}</td>
+            <td class="text-end" style="color:#dc3545;font-weight:600">${formatCurrency(e.commission)}</td>
+            <td>${deliveredDate}</td>
+        </tr>`;
+    }).join('');
+    
+    // Update footer totals
+    document.getElementById('tableTotalAmount').textContent = formatCurrency(totalAmount);
+    document.getElementById('tableTotalCommission').textContent = formatCurrency(totalCommission);
+}
+
+function exportEarnings(format) {
+    if (!_earningsData.length) {
+        showToast('No data available to export.', true);
+        return;
+    }
+    
+    // Get filter values
+    const startDate = document.getElementById('filterStartDate')?.value || '';
+    const endDate = document.getElementById('filterEndDate')?.value || '';
+    
+    const params = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    
+    const url = API.admin.exportEarnings(format, params);
+    
+    // Create a temporary link to trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `admin_earnings_report.${format}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast(`Exporting as ${format.toUpperCase()}...`);
 }
 
 async function loadAdminSalesChart(period = 'daily') {
@@ -332,7 +444,18 @@ async function openAppModal(id) {
 
     const docsEl = document.getElementById('modal-docs');
     docsEl.innerHTML = a.documents?.length
-        ? a.documents.map(d => `<a class="doc-link" href="/${d.file_path}" target="_blank">📄 ${d.doc_type.replace(/_/g,' ').toUpperCase()}</a>`).join('')
+        ? a.documents.map(d => {
+            const path = d.file_path?.startsWith('http') 
+                ? d.file_path 
+                : (d.file_path?.startsWith('/') ? d.file_path : '/' + d.file_path);
+            return `
+            <div style="display:inline-block;margin:4px">
+                <img src="${path}" alt="${d.doc_type}" title="${d.doc_type.replace(/_/g,' ')}" 
+                     style="width:100px;height:100px;object-fit:cover;border-radius:6px;border:1px solid #ddd;cursor:pointer"
+                     onclick="showDocPreview('${path}', '${d.doc_type}')">
+                <div style="font-size:10px;color:#666;text-align:center;margin-top:2px">${d.doc_type.replace(/_/g,' ')}</div>
+            </div>
+        `}).join('')
         : '<span style="font-size:13px;color:#999">No documents uploaded.</span>';
 
     document.getElementById('modal-actions').style.display = a.status === 'pending' ? 'flex' : 'none';
@@ -343,6 +466,17 @@ async function openAppModal(id) {
 function closeAppModal() {
     document.getElementById('modalOverlay').classList.remove('open');
     currentAppId = null;
+}
+
+function showDocPreview(url, title) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9999;cursor:pointer';
+    overlay.innerHTML = `<div style="max-width:90%;max-height:90%;text-align:center">
+        <img src="${url}" style="max-width:100%;max-height:90vh;object-fit:contain;border-radius:8px">
+        <div style="color:#fff;margin-top:12px;font-size:14px">${title}</div>
+    </div>`;
+    overlay.onclick = () => overlay.remove();
+    document.body.appendChild(overlay);
 }
 
 async function approveFromModal() {
@@ -641,7 +775,7 @@ async function openProductModal(productId) {
     if (generalImagesEl) {
         if (generalImages.length > 0) {
             generalImagesEl.innerHTML = generalImages
-                .map(img => `<img src="${img.image_url.startsWith('/') ? img.image_url : '/' + img.image_url}" alt="product image" title="General product image" style="width:100%;height:90px;object-fit:cover;border-radius:6px;border:2px solid #27ae60;cursor:pointer" onclick="this.style.borderColor=this.style.borderColor==='rgb(39, 174, 96)'?'#eee':'#27ae60'">`)
+                .map(img => `<img src="${img.image_url}" alt="product image" title="General product image" style="width:100%;height:90px;object-fit:cover;border-radius:6px;border:2px solid #27ae60;cursor:pointer" onclick="this.style.borderColor=this.style.borderColor==='rgb(39, 174, 96)'?'#eee':'#27ae60'">`)
                 .join('');
             if (generalImagesEmptyEl) generalImagesEmptyEl.style.display = 'none';
         } else {
@@ -673,7 +807,7 @@ async function openProductModal(productId) {
                         <div style="margin-bottom:16px">
                             <div style="font-size:12px;font-weight:600;color:#333;margin-bottom:6px">🏷️ ${variantLabel}</div>
                             <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(90px, 1fr));gap:8px">
-                                ${imgs.map(img => `<img src="${img.image_url.startsWith('/') ? img.image_url : '/' + img.image_url}" alt="variant image" title="Variant: ${variantLabel}" style="width:100%;height:90px;object-fit:cover;border-radius:6px;border:2px solid #3498db;cursor:pointer" onclick="this.style.borderColor=this.style.borderColor==='rgb(52, 152, 219)'?'#eee':'#3498db'">`).join('')}
+                                ${imgs.map(img => `<img src="${img.image_url}" alt="variant image" title="Variant: ${variantLabel}" style="width:100%;height:90px;object-fit:cover;border-radius:6px;border:2px solid #3498db;cursor:pointer" onclick="this.style.borderColor=this.style.borderColor==='rgb(52, 152, 219)'?'#eee':'#3498db'">`).join('')}
                             </div>
                         </div>
                     `;

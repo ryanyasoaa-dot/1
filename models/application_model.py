@@ -17,31 +17,45 @@ class ApplicationModel:
         return result.data[0] if result.data else None
     
     def get_all(self):
-        result = self.supabase.table('applications').select('*, user:users(*)').order('created_at', desc=True).execute()
+        result = self.supabase.table('applications').select('*').order('created_at', desc=True).execute()
         apps = result.data if result.data else []
         for a in apps:
-            u = a.pop('user', {}) or {}
-            a['full_name'] = f"{u.get('first_name','')} {u.get('last_name','')}" .strip()
-            a['email']     = u.get('email', '')
-            a['phone']     = u.get('phone', '')
+            user_id = a.get('user_id')
+            if user_id:
+                u = self.supabase.table('users').select('first_name, last_name, email, phone').eq('id', user_id).limit(1).execute()
+                u = u.data[0] if u.data else {}
+                a['full_name'] = f"{u.get('first_name','')} {u.get('last_name','')}".strip()
+                a['email']     = u.get('email', '')
+                a['phone']     = u.get('phone', '')
         return apps
 
     def get_pending(self):
-        """Get all pending applications"""
-        result = self.supabase.table('applications').select('*, user:users(first_name, last_name, email, phone)').eq('status', 'pending').order('created_at', desc=True).execute()
-        return result.data if result.data else []
+        result = self.supabase.table('applications').select('*').eq('status', 'pending').order('created_at', desc=True).execute()
+        apps = result.data if result.data else []
+        for a in apps:
+            user_id = a.get('user_id')
+            if user_id:
+                u = self.supabase.table('users').select('first_name, last_name, email, phone').eq('id', user_id).limit(1).execute()
+                u = u.data[0] if u.data else {}
+                a['full_name'] = f"{u.get('first_name','')} {u.get('last_name','')}".strip()
+                a['email']     = u.get('email', '')
+                a['phone']     = u.get('phone', '')
+        return apps
     
     def get_by_id(self, app_id):
-        result = self.supabase.table('applications').select('*, user:users(*), documents:application_documents(*)').eq('id', app_id).limit(1).execute()
+        result = self.supabase.table('applications').select('*').eq('id', app_id).limit(1).execute()
         if not result.data:
             return None
         a = result.data[0]
-        u = a.pop('user', {}) or {}
-        a['full_name'] = f"{u.get('first_name','')} {u.get('last_name','')}" .strip()
-        a['email']     = u.get('email', '')
-        a['phone']     = u.get('phone', '')
+        user_id = a.get('user_id', '')
+        if user_id:
+            u = self.supabase.table('users').select('*').eq('id', user_id).limit(1).execute()
+            u = u.data[0] if u.data else {}
+            a['full_name'] = f"{u.get('first_name','')} {u.get('last_name','')}".strip()
+            a['email']     = u.get('email', '')
+            a['phone']     = u.get('phone', '')
         # get address
-        addr = self.supabase.table('addresses').select('*').eq('user_id', u.get('id','')).limit(1).execute()
+        addr = self.supabase.table('addresses').select('*').eq('user_id', user_id).limit(1).execute()
         addr_data = addr.data[0] if addr.data else {}
         a['region']    = addr_data.get('region', '')
         a['city']      = addr_data.get('city', '')
@@ -50,6 +64,9 @@ class ApplicationModel:
         a['zip_code']  = addr_data.get('zip_code', '')
         a['latitude']  = addr_data.get('latitude', '')
         a['longitude'] = addr_data.get('longitude', '')
+        # get documents
+        docs = self.supabase.table('application_documents').select('*').eq('application_id', app_id).execute()
+        a['documents'] = docs.data if docs.data else []
         return a
     
     def create(self, app_data):

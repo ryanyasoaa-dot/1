@@ -134,7 +134,7 @@ async function loadMarket(params = {}) {
 
 function buildMarketCard(p) {
     const price    = parseFloat(p.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
-    const imgSrc   = p.image ? (p.image.startsWith('/') ? p.image : '/' + p.image) : '';
+    const imgSrc   = p.image || '';
     const imgEl    = imgSrc
         ? `<img src="${imgSrc}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover">`
         : `<span style="font-size:48px">🛍️</span>`;
@@ -176,7 +176,7 @@ function handleWishlist(btn, product) {
 // ── Product card rendering ────────────────────────────────────
 function renderProductCard(p) {
     const price    = parseFloat(p.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
-    const imgSrc   = p.image ? (p.image.startsWith('/') ? p.image : '/' + p.image) : '';
+    const imgSrc   = p.image || '';
     const imgEl    = imgSrc
         ? `<img src="${imgSrc}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover">`
         : `<span style="font-size:48px">🛍️</span>`;
@@ -249,15 +249,14 @@ async function loadProduct() {
     const primary = images.find(i => i.is_primary) || images[0];
     if (mainImageEl) {
         if (primary && primary.image_url) {
-            const imageUrl = primary.image_url.startsWith('/') ? primary.image_url : '/' + primary.image_url;
-            mainImageEl.innerHTML = `<img src="${imageUrl}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover">`;
+            mainImageEl.innerHTML = `<img src="${primary.image_url}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover">`;
         } else {
             mainImageEl.textContent = p.emoji || '🛍️';
         }
     }
     if (thumbsEl) {
         thumbsEl.innerHTML = images.map(img => {
-            const imageUrl = img.image_url.startsWith('/') ? img.image_url : '/' + img.image_url;
+            const imageUrl = img.image_url || '';
             return `
             <button type="button" style="border:1px solid #eee;background:#fff;padding:0;border-radius:6px;overflow:hidden;height:64px" onclick="setMainProductImage('${imageUrl.replace(/'/g, "\\'")}')">
                 <img src="${imageUrl}" alt="thumbnail" style="width:100%;height:100%;object-fit:cover">
@@ -273,8 +272,7 @@ async function loadProduct() {
 function setMainProductImage(url) {
     const mainImageEl = document.getElementById('productMainImage');
     if (!mainImageEl) return;
-    const imageUrl = url.startsWith('/') ? url : '/' + url;
-    mainImageEl.innerHTML = `<img src="${imageUrl}" alt="product image" style="width:100%;height:100%;object-fit:cover">`;
+    mainImageEl.innerHTML = `<img src="${url}" alt="product image" style="width:100%;height:100%;object-fit:cover">`;
 }
 
 // ── Cart page ─────────────────────────────────────────────────
@@ -297,9 +295,7 @@ function loadCart() {
         if (summaryEl) summaryEl.style.display = 'block';
 
         container.innerHTML = cart.map(item => {
-            const imgSrc = item.image
-                ? (item.image.startsWith('/') ? item.image : '/' + item.image)
-                : null;
+            const imgSrc = item.image || null;
             return `
             <div class="cart-item">
                 <div class="cart-item-img">${imgSrc ? `<img src="${imgSrc}" onerror="this.parentElement.innerHTML='🛍️'">` : '🛍️'}</div>
@@ -515,7 +511,7 @@ function loadWishlist() {
 
 function buildWishlistCard(p) {
     const price = parseFloat(p.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
-    const imgSrc = p.image ? (p.image.startsWith('/') ? p.image : '/' + p.image) : '';
+    const imgSrc = p.image || '';
     const seller = p.seller ? `${p.seller.first_name || ''} ${p.seller.last_name || ''}`.trim() : '';
     const stock = p.total_stock ?? p.stock ?? 0;
 

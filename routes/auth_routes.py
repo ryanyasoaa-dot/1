@@ -2,8 +2,9 @@ from flask import Blueprint, render_template, request, redirect, url_for, sessio
 from models.user_model import UserModel
 from services.auth_service import AuthService
 from services.file_upload_service import FileUploadService
-from security import rate_limit, generate_csrf_token
+from security import rate_limit, generate_csrf_token, validate_password, check_login_lockout, record_failed_login, clear_login_attempts, get_login_delay
 import os
+import time
 
 auth_bp = Blueprint('auth', __name__)
 auth_service = AuthService()
@@ -61,15 +62,81 @@ def forgot_password():
     reset_url = request.host_url.rstrip('/') + url_for('auth.reset_password', token=token)
     try:
         from services.email_service import send_password_reset
-        send_password_reset(
+        sent = send_password_reset(
             to_email=email,
             name=f"{user.get('first_name','')} {user.get('last_name','')}".strip() or 'User',
             reset_url=reset_url
         )
+        if not sent:
+            print(f'Password reset email failed to send to {email}')
     except Exception as e:
+        import traceback
         print(f'Password reset email error: {e}')
+        traceback.print_exc()
 
     return jsonify({'success': True, 'message': 'If that email exists, a reset link has been sent.'})
+
+
+@auth_bp.route('/send-otp', methods=['POST'])
+@rate_limit(max_calls=5, window_seconds=60)
+def send_otp():
+    data = request.get_json() or request.form
+    email = (data.get('email') or '').strip().lower()
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+    
+    import secrets
+    from datetime import datetime, timezone, timedelta
+    from supabase import create_client
+    
+    sb = create_client(os.getenv('SUPABASE_URL'), os.getenv('SUPABASE_SERVICE_ROLE_KEY'))
+    
+    otp = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+    
+    sb.table('email_otps').upsert({
+        'email': email,
+        'otp': otp,
+        'expires_at': expires_at
+    }).execute()
+    
+    from services.email_service import send_otp_email
+    sent = send_otp_email(email, 'User', otp)
+    
+    if sent:
+        return jsonify({'success': True, 'message': 'OTP sent to your email'})
+    return jsonify({'error': 'Failed to send OTP'}), 500
+
+
+@auth_bp.route('/verify-otp', methods=['POST'])
+@rate_limit(max_calls=5, window_seconds=60)
+def verify_otp():
+    data = request.get_json() or request.form
+    email = (data.get('email') or '').strip().lower()
+    otp = (data.get('otp') or '').strip()
+    
+    if not email or not otp:
+        return jsonify({'error': 'Email and OTP are required'}), 400
+    
+    from datetime import datetime, timezone
+    from supabase import create_client
+    
+    sb = create_client(os.getenv('SUPABASE_URL'), os.getenv('SUPABASE_SERVICE_ROLE_KEY'))
+    
+    row = sb.table('email_otps').select('*').eq('email', email).eq('otp', otp).execute()
+    
+    if not row.data:
+        return jsonify({'error': 'Invalid OTP'}), 400
+    
+    record = row.data[0]
+    expires_at = datetime.fromisoformat(record['expires_at'].replace('Z', '+00:00'))
+    
+    if datetime.now(timezone.utc) > expires_at:
+        return jsonify({'error': 'OTP has expired'}), 400
+    
+    sb.table('email_otps').delete().eq('email', email).execute()
+    
+    return jsonify({'success': True, 'message': 'Email verified successfully'})
 
 
 @auth_bp.route('/reset-password/<token>', methods=['GET', 'POST'])
@@ -105,6 +172,8 @@ def reset_password(token):
 
 def _handle_registration():
     try:
+        if request.form.get('otp_verified') != 'true':
+            return jsonify({'error': 'Email must be verified with OTP first'}), 400
         result = auth_service.register_user(request.form, request.files)
         if result.get('success'):
             return jsonify({'success': True, 'message': 'Registration successful! Please wait for admin approval.'})
@@ -136,7 +205,3 @@ def _handle_login():
         return jsonify({'error': result.get('error', 'Invalid credentials')}), 401
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-# Route aliases for backward compatibility
-register_view = register
-login_view = login

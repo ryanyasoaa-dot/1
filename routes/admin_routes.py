@@ -404,3 +404,322 @@ def api_admin_recent_orders():
             'created_at':   o.get('created_at', ''),
         })
     return jsonify(result)
+
+
+@admin_bp.route('/api/earnings-detail', methods=['GET'])
+@admin_required
+def api_admin_earnings_detail():
+    """Get detailed earnings data for delivered orders with seller and product info."""
+    from supabase import create_client
+    from datetime import datetime, timezone, timedelta
+    import os
+    
+    sb = create_client(os.getenv('SUPABASE_URL'), os.getenv('SUPABASE_SERVICE_ROLE_KEY'))
+    
+    # Get commission rate
+    settings = sb.table('admin_settings').select('key,value').execute()
+    rates = {r['key']: r['value'] for r in (settings.data or [])}
+    commission_rate = float(rates.get('commission_rate', 5)) / 100
+    
+    # Get filter parameters
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+    seller_id = request.args.get('seller_id', '')
+    product_id = request.args.get('product_id', '')
+    
+    # Build query for delivered orders with all related data
+    query = sb.table('orders').select('''
+        id,
+        total_amount,
+        status,
+        created_at,
+        buyer_id,
+        buyer:users(first_name, last_name),
+        order_items(
+            id,
+            product_id,
+            quantity,
+            total_price,
+            product:products(
+                id,
+                name,
+                seller_id,
+                seller:users!products_seller_id_fkey(first_name, last_name, store_name)
+            )
+        )
+    ''').eq('status', 'delivered').order('created_at', desc=True).execute()
+    
+    orders = query.data or []
+    
+    # Apply date filters
+    if start_date:
+        try:
+            start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
+            orders = [o for o in orders if o.get('created_at') and datetime.fromisoformat(o['created_at'].replace('Z', '+00:00')) >= start]
+        except Exception:
+            pass
+    
+    if end_date:
+        try:
+            end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+            orders = [o for o in orders if o.get('created_at') and datetime.fromisoformat(o['created_at'].replace('Z', '+00:00')) <= end]
+        except Exception:
+            pass
+    
+    # Build detailed earnings data
+    earnings_data = []
+    for order in orders:
+        buyer = order.get('buyer') or {}
+        order_items = order.get('order_items') or []
+        
+        for item in order_items:
+            product = item.get('product') or {}
+            seller = product.get('seller') or {}
+            quantity = int(item.get('quantity', 0) or 0)
+            total_price = float(item.get('total_price', 0) or 0)
+            commission = round(total_price * commission_rate, 2)
+            
+            try:
+                delivered_date = datetime.fromisoformat(order['created_at'].replace('Z', '+00:00'))
+                delivered_date_str = delivered_date.strftime('%Y-%m-%d %H:%M:%S')
+            except Exception:
+                delivered_date_str = order.get('created_at', '')
+            
+            earnings_data.append({
+                'order_id': order.get('id', ''),
+                'seller_name': f"{seller.get('first_name', '')} {seller.get('last_name', '')}".strip() or seller.get('store_name', '—'),
+                'product_name': product.get('name', '—'),
+                'quantity': quantity,
+                'total_amount': total_price,
+                'commission': commission,
+                'delivered_date': delivered_date_str,
+                'buyer_name': f"{buyer.get('first_name', '')} {buyer.get('last_name', '')}".strip() or '—',
+            })
+    
+    # Calculate summary
+    total_commission = round(sum(e['commission'] for e in earnings_data), 2)
+    
+    now = datetime.now(timezone.utc)
+    today = now.date()
+    week_start = today - timedelta(days=today.weekday())
+    month_start = today.replace(day=1)
+    
+    today_commission = 0.0
+    week_commission = 0.0
+    month_commission = 0.0
+    
+    for e in earnings_data:
+        try:
+            d = datetime.fromisoformat(e['delivered_date'].replace('Z', '+00:00')).date()
+            if d == today:
+                today_commission += e['commission']
+            if d >= week_start:
+                week_commission += e['commission']
+            if d >= month_start:
+                month_commission += e['commission']
+        except Exception:
+            pass
+    
+    return jsonify({
+        'earnings': earnings_data,
+        'summary': {
+            'total_commission': round(total_commission, 2),
+            'today_commission': round(today_commission, 2),
+            'week_commission': round(week_commission, 2),
+            'month_commission': round(month_commission, 2),
+            'total_orders': len(set(e['order_id'] for e in earnings_data)),
+            'total_items': len(earnings_data),
+        },
+        'commission_rate': float(rates.get('commission_rate', 5)),
+    })
+
+
+@admin_bp.route('/api/earnings-export', methods=['GET'])
+@admin_required
+def api_admin_earnings_export():
+    """Export earnings data as CSV or Excel."""
+    from supabase import create_client
+    import os
+    import io
+    import csv
+    
+    sb = create_client(os.getenv('SUPABASE_URL'), os.getenv('SUPABASE_SERVICE_ROLE_KEY'))
+    
+    # Get parameters
+    export_format = request.args.get('format', 'csv')  # csv or xlsx
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+    seller_id = request.args.get('seller_id', '')
+    product_id = request.args.get('product_id', '')
+    
+    # Get commission rate
+    settings = sb.table('admin_settings').select('key,value').execute()
+    rates = {r['key']: r['value'] for r in (settings.data or [])}
+    commission_rate = float(rates.get('commission_rate', 5)) / 100
+    
+    # Get delivered orders with details
+    query = sb.table('orders').select('''
+        id,
+        total_amount,
+        status,
+        created_at,
+        buyer_id,
+        buyer:users(first_name, last_name),
+        order_items(
+            id,
+            product_id,
+            quantity,
+            total_price,
+            product:products(
+                id,
+                name,
+                seller_id,
+                seller:users!products_seller_id_fkey(first_name, last_name, store_name)
+            )
+        )
+    ''').eq('status', 'delivered').order('created_at', desc=True).execute()
+    
+    orders = query.data or []
+    
+    # Apply date filters
+    if start_date:
+        try:
+            from datetime import datetime, timezone
+            start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
+            orders = [o for o in orders if o.get('created_at') and datetime.fromisoformat(o['created_at'].replace('Z', '+00:00')) >= start]
+        except Exception:
+            pass
+    
+    if end_date:
+        try:
+            from datetime import datetime, timezone
+            end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+            orders = [o for o in orders if o.get('created_at') and datetime.fromisoformat(o['created_at'].replace('Z', '+00:00')) <= end]
+        except Exception:
+            pass
+    
+    # Build export data
+    export_data = []
+    for order in orders:
+        buyer = order.get('buyer') or {}
+        order_items = order.get('order_items') or []
+        
+        for item in order_items:
+            product = item.get('product') or {}
+            seller = product.get('seller') or {}
+            quantity = int(item.get('quantity', 0) or 0)
+            total_price = float(item.get('total_price', 0) or 0)
+            commission = round(total_price * commission_rate, 2)
+            
+            try:
+                delivered_date = datetime.fromisoformat(order['created_at'].replace('Z', '+00:00'))
+                delivered_date_str = delivered_date.strftime('%Y-%m-%d %H:%M:%S')
+            except Exception:
+                delivered_date_str = order.get('created_at', '')
+            
+            export_data.append({
+                'Order ID': order.get('id', ''),
+                'Seller Name': f"{seller.get('first_name', '')} {seller.get('last_name', '')}".strip() or seller.get('store_name', '—'),
+                'Product Name': product.get('name', '—'),
+                'Quantity': quantity,
+                'Total Amount (₱)': total_price,
+                'Admin Commission (₱)': commission,
+                'Delivered Date': delivered_date_str,
+                'Buyer Name': f"{buyer.get('first_name', '')} {buyer.get('last_name', '')}".strip() or '—',
+            })
+    
+    # Generate file
+    now_str = datetime.now().strftime('%b_%Y')
+    
+    if export_format == 'xlsx':
+        try:
+            import pandas as pd
+            
+            df = pd.DataFrame(export_data)
+            output = io.BytesIO()
+            
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Admin Earnings')
+                
+                # Format the sheet
+                worksheet = writer.sheets['Admin Earnings']
+                from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+                
+                # Header styling
+                header_fill = PatternFill(start_color="1A1A3E", end_color="1A1A3E", fill_type="solid")
+                header_font = Font(bold=True, color="FFFFFF", size=11)
+                header_alignment = Alignment(horizontal="center", vertical="center")
+                
+                for cell in worksheet[1]:
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = header_alignment
+                
+                # Auto-adjust column widths
+                for column in worksheet.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            max_length = max(max_length, len(str(cell.value)))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 30)
+                    worksheet.column_dimensions[column_letter].width = adjusted_width
+                
+                # Add summary sheet
+                summary_data = [
+                    ['Summary'],
+                    ['Total Earnings', f'₱{sum(row["Admin Commission (₱)"] for row in export_data):.2f}'],
+                    ['Total Orders', len(set(row["Order ID"] for row in export_data))],
+                    ['Total Items Sold', sum(row["Quantity"] for row in export_data)],
+                    ['Commission Rate', f'{float(rates.get("commission_rate", 5))}%'],
+                    ['Export Date', datetime.now().strftime('%Y-%m-%d %H:%M:%S')],
+                ]
+                summary_df = pd.DataFrame(summary_data)
+                summary_df.to_excel(writer, index=False, sheet_name='Summary')
+            
+            output.seek(0)
+            
+            filename = f'admin_earnings_report_{now_str}.xlsx'
+            
+            from flask import send_file
+            return send_file(
+                output,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name=filename
+            )
+        except ImportError:
+            return jsonify({'error': 'Excel export requires pandas and openpyxl. Please install them.'}), 500
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+    else:
+        # CSV export
+        output = io.StringIO()
+        if export_data:
+            writer = csv.DictWriter(output, fieldnames=export_data[0].keys())
+            writer.writeheader()
+            writer.writerows(export_data)
+        
+        # Add summary at the end
+        summary_lines = [
+            '',
+            '=== SUMMARY ===',
+            f'Total Earnings: ₱{sum(row["Admin Commission (₱)"] for row in export_data):.2f}',
+            f'Total Orders: {len(set(row["Order ID"] for row in export_data))}',
+            f'Total Items Sold: {sum(row["Quantity"] for row in export_data)}',
+            f'Commission Rate: {float(rates.get("commission_rate", 5))}%',
+            f'Export Date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}',
+        ]
+        output.write('\n'.join(summary_lines))
+        
+        filename = f'admin_earnings_report_{now_str}.csv'
+        
+        from flask import send_file
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=filename
+        )

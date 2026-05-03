@@ -180,6 +180,7 @@ def api_recent_orders():
             'id': order.get('id'),
             'order_id': order.get('id', '')[:8],
             'customer_name': order.get('customer_name', 'Unknown'),
+            'buyer_id': order.get('buyer_id'),
             'items_count': order.get('items_count', 0),
             'total_amount': order.get('total_amount', 0),
             'status': order.get('status', 'pending'),
@@ -336,13 +337,61 @@ def orders():
     orders = order_model.get_by_seller(seller_id)
     return render_template('seller/orders.html', orders=orders)
 
+@seller_bp.route('/orders/<order_id>')
+@seller_required
+def order_detail(order_id):
+    seller_id = session['user']['id']
+    from models.order_model import OrderModel
+    order_model = OrderModel()
+    
+    # Get order details
+    order = order_model.get_by_id(order_id)
+    if not order:
+        from flask import abort
+        abort(404)
+    
+    # Verify seller owns at least one product in this order
+    product_result = order_model.supabase.table('products').select('id').eq('seller_id', seller_id).execute()
+    product_ids = [p.get('id') for p in (product_result.data or [])]
+    if not product_ids:
+        from flask import abort
+        abort(403)
+    owned_items = order_model.supabase.table('order_items').select('id').eq('order_id', order_id).in_('product_id', product_ids).limit(1).execute()
+    if not owned_items.data:
+        from flask import abort
+        abort(403)
+    
+    return render_template('seller/order_detail.html', order=order)
+
+@seller_bp.route('/api/orders/<order_id>', methods=['GET'])
+@seller_required
+def api_seller_order_detail(order_id):
+    seller_id = session['user']['id']
+    order_model = OrderModel()
+    order = order_model.get_by_id(order_id)
+    if not order:
+        return jsonify({'error': 'Order not found'}), 404
+    # Verify seller owns at least one product in this order
+    product_result = order_model.supabase.table('products').select('id').eq('seller_id', seller_id).execute()
+    product_ids = [p.get('id') for p in (product_result.data or [])]
+    if not product_ids:
+        return jsonify({'error': 'Not authorized'}), 403
+    owned_items = order_model.supabase.table('order_items').select('id').eq('order_id', order_id).in_('product_id', product_ids).limit(1).execute()
+    if not owned_items.data:
+        return jsonify({'error': 'Not authorized'}), 403
+    return jsonify(order)
+
 @seller_bp.route('/api/orders', methods=['GET'])
 @seller_required
 def api_seller_orders():
     seller_id = session['user']['id']
     from models.order_model import OrderModel
     order_model = OrderModel()
-    return jsonify(order_model.get_by_seller(seller_id))
+    orders = order_model.get_by_seller(seller_id)
+    # Add buyer_id to each order for the frontend
+    for order in orders:
+        order['buyer_id'] = order.get('buyer_id')
+    return jsonify(orders)
 
 @seller_bp.route('/api/orders/<order_id>/status', methods=['POST'])
 @seller_required

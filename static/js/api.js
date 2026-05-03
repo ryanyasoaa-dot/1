@@ -9,9 +9,11 @@ function _csrfToken() {
 }
 
 function _post(url, body) {
+    const token = _csrfToken();
+    console.log('POST', url, 'CSRF token:', token ? 'present (' + token.length + ' chars)' : 'MISSING');
     return fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken() },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
         body: JSON.stringify(body),
     }).then(r => r.json());
 }
@@ -124,6 +126,15 @@ const API = {
         setCommission:     (data)        => _post('/admin/api/commission', data),
         getSalesAnalytics: (period)      => _get(`/admin/api/sales-analytics?period=${encodeURIComponent(period || 'daily')}`),
         getRecentOrders:   (limit)       => _get(`/admin/api/recent-orders?limit=${encodeURIComponent(limit || 10)}`),
+        getEarningsDetail: (params = {}) => {
+            const qs = new URLSearchParams(params).toString();
+            return _get(`/admin/api/earnings-detail${qs ? '?' + qs : ''}`);
+        },
+        exportEarnings:    (format, params = {}) => {
+            params.format = format;
+            const qs = new URLSearchParams(params).toString();
+            return `/admin/api/earnings-export?${qs}`;
+        },
     },
 
     // ── Admin: Products ───────────────────────────────────────
@@ -137,10 +148,11 @@ const API = {
     messages: {
         getConversations:  ()                       => _get('/messages/api/conversations'),
         startConversation: (userId, orderId = null) => _post('/messages/api/conversations/start', { user_id: userId, order_id: orderId }),
+        findConversation:  (otherId, orderId = null) => _get(`/messages/api/conversations/find?user_id=${encodeURIComponent(otherId)}${orderId ? '&order_id=' + encodeURIComponent(orderId) : ''}`),
         getMessages:       (convId, after = null)   => _get(`/messages/api/conversations/${encodeURIComponent(convId)}/messages${after ? '?after=' + encodeURIComponent(after) : ''}`),
         sendMessage:       (convId, content)        => _post(`/messages/api/conversations/${encodeURIComponent(convId)}/messages`, { content }),
         markRead:          (convId)                 => _post(`/messages/api/conversations/${encodeURIComponent(convId)}/read`, {}),
         getUnreadCount:    ()                       => _get('/messages/api/unread-count'),
-        quickMessage:      (buyerId, orderId, sendAuto) => _post('/messages/api/quick-message', { buyer_id: buyerId, order_id: orderId, send_auto: sendAuto }),
+        quickMessage:      (otherId, orderId, sendAuto) => _post('/messages/api/quick-message', { other_id: otherId, order_id: orderId, send_auto: sendAuto }),
     },
 };

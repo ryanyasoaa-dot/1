@@ -64,6 +64,12 @@ function validateStep1() {
     if (!g('last_name'))   { showError('Last name is required.'); return false; }
     if (!g('email'))       { showError('Email is required.'); return false; }
     if (!g('phone'))       { showError('Phone number is required.'); return false; }
+    
+    const otpVerified = document.getElementById('otp').dataset.verified;
+    if (!otpVerified) {
+        showError('Please verify your email with OTP.');
+        return false;
+    }
 
     const pw  = document.getElementById('password').value;
     const cpw = document.getElementById('confirm_password').value;
@@ -72,6 +78,97 @@ function validateStep1() {
     if (pw !== cpw)     { showError('Passwords do not match.'); return false; }
 
     return true;
+}
+
+async function sendOTP() {
+    const email = document.getElementById('email').value.trim();
+    if (!email) { showError('Enter your email first.'); return; }
+    
+    const btn = document.getElementById('sendOtpBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    
+    try {
+        const res = await fetch('/send-otp', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email})
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+            document.getElementById('otpGroup').style.display = 'block';
+            document.getElementById('otp').focus();
+            startOtpTimer(60);
+            showSuccess('OTP sent! Check your email.');
+        } else {
+            showError(data.error || 'Failed to send OTP');
+        }
+    } catch {
+        showError('Network error');
+    }
+    
+    btn.disabled = false;
+    btn.textContent = 'Send OTP';
+}
+
+function startOtpTimer(seconds) {
+    const timerEl = document.getElementById('otpTimer');
+    let remaining = seconds;
+    
+    const update = () => {
+        const mins = Math.floor(remaining / 60);
+        const secs = remaining % 60;
+        timerEl.textContent = `Code expires in ${mins}:${secs.toString().padStart(2, '0')}`;
+        remaining--;
+        
+        if (remaining < 0) {
+            clearInterval(window._otpInterval);
+            timerEl.textContent = 'OTP expired. Click Resend.';
+        }
+    };
+    
+    update();
+    clearInterval(window._otpInterval);
+    window._otpInterval = setInterval(update, 1000);
+}
+
+async function verifyOTP() {
+    const email = document.getElementById('email').value.trim();
+    const otp = document.getElementById('otp').value.trim();
+    
+    if (!otp || otp.length !== 6) { showError('Enter 6-digit OTP'); return; }
+    
+    try {
+        const res = await fetch('/verify-otp', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email, otp})
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+            document.getElementById('otp').dataset.verified = 'true';
+            clearInterval(window._otpInterval);
+            document.getElementById('otpTimer').textContent = '✅ Verified';
+            showSuccess('Email verified!');
+        } else {
+            showError(data.error || 'Invalid OTP');
+        }
+    } catch {
+        showError('Network error');
+    }
+}
+
+document.getElementById('otp').addEventListener('keyup', (e) => {
+    if (e.target.value.length === 6) verifyOTP();
+});
+
+function showSuccess(msg) {
+    const el = document.getElementById('successMsg');
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 3000);
 }
 
 function validateStep2() {
@@ -179,6 +276,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     fd.append('phone',       g('phone').value.trim());
     fd.append('password',    g('password').value);
     fd.append('role',        role);
+    fd.append('otp_verified', document.getElementById('otp').dataset.verified ? 'true' : 'false');
     fd.append('region',      addr.region);
     fd.append('province',    addr.province);
     fd.append('city',        addr.city);

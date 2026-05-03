@@ -1,5 +1,5 @@
 create table users (
-    id              uuid        not null references auth.users(id) on delete cascade,
+    id              uuid        not null default gen_random_uuid(),
     first_name      text        not null,
     middle_name     text,
     last_name       text        not null,
@@ -9,6 +9,7 @@ create table users (
     role            text        not null default 'user' check (role in ('user', 'admin', 'buyer', 'seller', 'rider')),
     profile_picture text, 
     password        text,  -- In production, this should be hashed  <-- LINE 30
+    email           text        not null unique,
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now(),
     primary key (id)
@@ -49,7 +50,7 @@ create table applications (
     vehicle_type      text,
     license_number    text,
     -- Admin review
-    reviewed_by       uuid        references auth.users(id),
+    reviewed_by       uuid        references users(id) on delete set null,
     reviewed_at       timestamptz,
     reject_reason     text,
     created_at        timestamptz not null default now(),
@@ -73,7 +74,7 @@ create table application_documents (
 -- ============================================
 create table products (
     id                uuid        not null default gen_random_uuid(),
-    seller_id         uuid        not null references users(id) on delete cascade,
+    seller_id         uuid        not null,
     name              text        not null,
     description       text,
     category          text        not null check (category in ('Dresses & Skirts', 'Tops & Blouses', 'Activewear & Yoga Pants', 'Lingerie & Sleepwear', 'Jackets & Coats', 'Shoes & Accessories')),
@@ -85,6 +86,7 @@ create table products (
     reject_reason     text,
     created_at        timestamptz not null default now(),
     updated_at        timestamptz not null default now(),
+    constraint products_seller_id_fkey foreign key (seller_id) references users(id) on delete cascade,
     primary key (id)
 );
 
@@ -374,6 +376,20 @@ create table if not exists password_reset_tokens (
 );
 create index if not exists idx_prt_token on password_reset_tokens(token);
 create index if not exists idx_prt_user  on password_reset_tokens(user_id);
+
+-- ============================================
+-- EMAIL OTP TABLE
+-- ============================================
+create table if not exists email_otps (
+    id         uuid        not null default gen_random_uuid(),
+    email      text        not null,
+    otp        text        not null,
+    expires_at timestamptz not null,
+    created_at timestamptz not null default now(),
+    primary key (id),
+    unique (email)
+);
+create index if not exists idx_otps_email on email_otps(email);
 
 -- ============================================
 -- CONVERSATIONS TABLE

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Luxe Seller — Order Details</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/seller.css') }}">
+    <style>
+        .order-detail-container { max-width: 900px; margin: 0 auto; }
+        .order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .order-title { font-size: 24px; font-weight: 700; color: #1a1a3e; }
+        .badge-status { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; text-transform: uppercase; }
+        .badge-pending { background: #fff3cd; color: #856404; }
+        .badge-processing { background: #d1ecf1; color: #0c5460; }
+        .badge-ready_for_pickup { background: #fff3cd; color: #856404; }
+        .badge-in_transit { background: #e2e3e5; color: #383d41; }
+        .badge-delivered { background: #d4edda; color: #155724; }
+        .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+        .card-title { font-size: 16px; font-weight: 700; color: #1a1a3e; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #f0f0f0; }
+        .info-row { display: flex; margin-bottom: 10px; }
+        .info-label { width: 120px; color: #6c757d; font-size: 14px; }
+        .info-value { flex: 1; color: #1a1a3e; font-size: 14px; font-weight: 500; }
+        .item-row { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #f5f5f5; }
+        .item-row:last-child { border-bottom: none; }
+        .item-image { width: 50px; height: 50px; background: #f8f9fa; border-radius: 8px; margin-right: 12px; display: flex; align-items: center; justify-content: center; }
+        .item-details { flex: 1; }
+        .item-name { font-weight: 600; color: #1a1a3e; font-size: 14px; margin-bottom: 4px; }
+        .item-meta { font-size: 12px; color: #6c757d; }
+        .item-price { text-align: right; min-width: 80px; }
+        .total-row { display: flex; justify-content: space-between; padding: 12px 0; font-size: 15px; }
+        .total-row.final { font-weight: 700; font-size: 17px; color: #1a1a3e; border-top: 2px solid #e8e8f0; margin-top: 8px; padding-top: 12px; }
+        .btn-action { background: #FF2BAC; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-action:disabled { opacity: 0.6; cursor: not-allowed; }
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .back-link { color: #FF2BAC; text-decoration: none; font-weight: 500; font-size: 14px; }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div id="sidebarOverlay"></div>
+<button class="sidebar-toggle" id="sidebarToggle">&#9776;</button>
+<aside class="sidebar">
+    <div class="sidebar-logo">Luxe Seller</div>
+    <ul class="sidebar-menu">
+        <li><a href="/seller"><span class="icon">&#127968;</span> Dashboard</a></li>
+        <li class="menu-group">STORE</li>
+        <li><a href="/seller/products"><span class="icon">&#128230;</span> Products</a></li>
+        <li><a href="/seller/orders" class="active"><span class="icon">&#128722;</span> Orders</a></li>
+        <li><a href="/seller/shipping"><span class="icon">&#128666;</span> Shipping</a></li>
+        <li class="menu-group">FINANCE</li>
+        <li><a href="/seller/earnings"><span class="icon">&#128176;</span> Earnings</a></li>
+        <li class="menu-group">PROFILE</li>
+        <li><a href="/seller/store"><span class="icon">&#127980;</span> Store Profile</a></li>
+        <li><a href="/seller/reviews"><span class="icon">&#11088;</span> Reviews</a></li>
+        <li class="menu-group">SUPPORT</li>
+        <li><a href="/messages/"><span class="icon">&#128172;</span> Messages</a></li>
+    </ul>
+    <div class="sidebar-footer">
+        <div class="sidebar-user">&#127978; {{ session.user.name }}</div>
+        <a href="/logout" class="logout-link">&#128682; Logout</a>
+    </div>
+</aside>
+<div class="main">
+    <div class="topbar">
+        <div class="topbar-title">Order Details</div>
+        <div class="topbar-right">Seller Panel</div>
+    </div>
+    <div class="content">
+        <div class="order-detail-container">
+            <a href="/seller/orders" class="back-link">&#8592; Back to Orders</a>
+            <div class="order-header">
+                <div class="order-title">Order #{{ order.id[:8] | upper }}</div>
+                <span class="badge-status badge-{{ order.status }}">{{ order.status | replace('_', ' ') }}</span>
+            </div>
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <h3 class="card-title">Products Ordered</h3>
+                        {% for item in order.order_items or [] %}
+                        <div class="item-row">
+                            <div class="item-image">&#128722;</div>
+                            <div class="item-details">
+                                <div class="item-name">{{ item.product.name if item.product else 'Product' }}</div>
+                                <div class="item-meta">Qty: {{ item.quantity }} {% if item.variant %}· {{ item.variant.value }}{% endif %}</div>
+                            </div>
+                            <div class="item-price">&#8369;{{ "%.2f" | format(item.total_price) }}</div>
+                        </div>
+                        {% endfor %}
+                        <div class="total-row final">
+                            <span>Total</span>
+                            <span>&#8369;{{ "%.2f" | format(order.total_amount) }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <h3 class="card-title">Buyer Information</h3>
+                        <div class="info-row">
+                            <span class="info-label">Name</span>
+                            <span class="info-value">{{ order.buyer.first_name if order.buyer else '' }} {{ order.buyer.last_name if order.buyer else '' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Email</span>
+                            <span class="info-value">{{ order.buyer.email if order.buyer else '—' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Order Date</span>
+                            <span class="info-value">{{ order.created_at[:10] if order.created_at else '—' }}</span>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 class="card-title">Delivery Information</h3>
+                        <div class="info-row">
+                            <span class="info-label">Address</span>
+                            <span class="info-value">{{ order.delivery_address or '—' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Status</span>
+                            <span class="info-value">{{ order.status | replace('_', ' ') }}</span>
+                        </div>
+</div>
+                                               <div class="card">
+                        <button class="btn-action w-100" onclick="messageBuyer('{{ order.id }}', '{{ order.buyer_id }}', '{{ (order.buyer.first_name if order.buyer else '') }} {{ (order.buyer.last_name if order.buyer else '') }}')">&#128172; Message Buyer</button>
+                    </div>
+                    {% if order.status in ['pending', 'processing'] %}
+                    <div class="card">
+                        <h3 class="card-title">Update Status</h3>
+                        {% if order.status == 'pending' %}
+                        <button class="btn-action w-100" onclick="updateStatus('{{ order.id }}', 'processing', this)">Mark as Processing</button>
+                        {% endif %}
+                        {% if order.status == 'processing' %}
+                        <button class="btn-action w-100" onclick="updateStatus('{{ order.id }}', 'ready_for_pickup', this)">Ready for Pickup</button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chat Panel Backdrop -->
+<div class="chat-panel-backdrop" id="chatPanelBackdrop"></div>
+
+<!-- Slide-in Chat Panel -->
+<div class="order-chat-panel" id="orderChatPanel">
+    <div class="chat-panel-header">
+        <div class="chat-panel-avatar">&#128100;</div>
+        <div class="chat-panel-title">
+            <div class="name" id="chatPanelBuyerName">Buyer</div>
+            <div class="order-ref" id="chatPanelOrderId">#—</div>
+        </div>
+        <button class="chat-panel-close" onclick="closeOrderChat()" title="Close">&times;</button>
+    </div>
+    <div class="quick-reply-bar" id="quickReplyBar">
+        <p>&#9889; Quick Reply</p>
+        <button class="quick-reply-btn" id="quickReplyBtn" onclick="sendQuickReply()">&#128172; Send Welcome Message</button>
+    </div>
+    <div class="chat-panel-messages" id="chatPanelMessages"></div>
+    <div class="chat-panel-input-area">
+        <textarea class="chat-panel-input" id="chatPanelInput" rows="1" placeholder="Type a message…" onkeydown="handleChatKey(event)" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
+        <button class="chat-panel-send" onclick="sendChatPanelMessage()">&#10148;</button>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+function showToast(msg, isError = false) {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.style.background = isError ? '#c0392b' : '#1a1a3e';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+}
+async function updateStatus(id, status, btn) {
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Updating...';
+    try {
+        const res = await fetch('/seller/api/orders/' + id + '/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '' },
+            body: JSON.stringify({ status })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Status updated');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = original;
+            showToast(data.error || 'Update failed', true);
+        }
+    } catch (e) {
+        btn.disabled = false;
+        btn.innerHTML = original;
+        showToast('Network error', true);
+    }
+}
+</script>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/seller.js') }}"></script>
+<script>
+    _ME_ID = {{ session.user.id | tojson }};
+    // Sync backdrop with panel open state
+    const _panel = document.getElementById('orderChatPanel');
+    const _backdrop = document.getElementById('chatPanelBackdrop');
+    const _origClose = closeOrderChat;
+    closeOrderChat = function() { _origClose(); _backdrop.style.display = 'none'; _panel.style.right = '-420px'; };
+    const _origMsg = messageBuyer;
+    messageBuyer = async function(o, b, n) { _backdrop.style.display = 'block'; _panel.style.right = '0'; await _origMsg(o, b, n); };
+</script>
+</body>
+</html>

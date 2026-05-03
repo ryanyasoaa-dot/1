@@ -36,7 +36,7 @@ function navDoSearch() {
 // ── Product card builder ──────────────────────────────────────
 function buildProductCard(p) {
     const price    = parseFloat(p.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
-    const imgSrc   = p.image ? `/${p.image}` : '';
+    const imgSrc   = p.image || '';
     const imgEl    = imgSrc
         ? `<img src="${imgSrc}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover">`
         : `<span style="font-size:48px">👗</span>`;

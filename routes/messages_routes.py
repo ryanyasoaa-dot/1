@@ -69,6 +69,28 @@ def api_start_conversation():
     return jsonify(conv)
 
 
+@messages_bp.route('/api/conversations/find', methods=['GET'])
+@_login_required
+def api_find_conversation():
+    """Find existing conversation between current user and another user, optionally by order_id."""
+    user = _current_user()
+    other_id = request.args.get('user_id')
+    order_id = request.args.get('order_id')
+    if not other_id:
+        return jsonify({'error': 'user_id is required'}), 400
+    if other_id == user['id']:
+        return jsonify({'error': 'Cannot message yourself'}), 400
+    
+    p1, p2 = sorted([user['id'], other_id])
+    query = msg_model.supabase.table('conversations').select('*').eq('participant_1', p1).eq('participant_2', p2)
+    if order_id:
+        query = query.eq('order_id', order_id)
+    else:
+        query = query.is_('order_id', 'null')
+    result = query.limit(1).execute()
+    return jsonify(result.data[0] if result.data else None)
+
+
 @messages_bp.route('/api/conversations/<conv_id>/messages', methods=['GET'])
 @_login_required
 def api_get_messages(conv_id):
@@ -128,7 +150,7 @@ def api_unread_count():
     return jsonify({'count': count})
 
 
-# ── API: Quick message (seller → buyer per order) ────────────
+# ── API: Quick message (any role → any role per order) ────────
 
 QUICK_MSG = "Thank you for your order! We are currently processing your items. We will update you once it is ready for pickup."
 
@@ -136,21 +158,23 @@ QUICK_MSG = "Thank you for your order! We are currently processing your items. W
 @_login_required
 def api_quick_message():
     """Start or reuse a conversation and optionally send the welcome auto-message.
-    Body: { buyer_id, order_id, send_auto: bool }
-    Returns: { conversation_id, already_sent, message? }
+    Body: { other_id, order_id, send_auto: bool }
+    Returns: { conversation_id, already_sent, message?, other_user: {first_name, last_name} }
+    
+    Note: This is a generic endpoint for any role-to-role messaging.
     """
     user = _current_user()
     data = request.get_json() or {}
-    buyer_id = data.get('buyer_id')
+    other_id = data.get('other_id') or data.get('buyer_id')  # Support both old and new param names
     order_id = data.get('order_id')
     send_auto = data.get('send_auto', False)
 
-    if not buyer_id or not order_id:
-        return jsonify({'error': 'buyer_id and order_id are required'}), 400
-    if buyer_id == user['id']:
+    if not other_id or not order_id:
+        return jsonify({'error': 'other_id and order_id are required'}), 400
+    if other_id == user['id']:
         return jsonify({'error': 'Cannot message yourself'}), 400
 
-    conv = msg_model.get_or_create_conversation(user['id'], buyer_id, order_id)
+    conv = msg_model.get_or_create_conversation(user['id'], other_id, order_id)
     if not conv:
         return jsonify({'error': 'Failed to create conversation'}), 500
 
@@ -160,13 +184,18 @@ def api_quick_message():
     sent_msg = None
     if send_auto and not already_sent:
         sender_id   = user['id']
-        receiver_id = buyer_id
+        receiver_id = other_id
         sent_msg = msg_model.send_message(conv_id, sender_id, receiver_id, QUICK_MSG)
+
+    # Fetch other user info for display
+    other_user = msg_model.supabase.table('users').select('id, first_name, last_name, profile_picture, role').eq('id', other_id).single().execute()
+    other_data = other_user.data if other_user.data else {}
 
     return jsonify({
         'conversation_id': conv_id,
         'already_sent':    already_sent,
         'message':         sent_msg,
+        'other_user':           other_data,
     })
 
 

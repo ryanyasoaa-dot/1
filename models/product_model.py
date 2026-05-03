@@ -18,11 +18,8 @@ class ProductModel:
         if not result.data:
             return None
         product = result.data[0]
-        # Normalise image URLs so legacy local paths still resolve
-        for img in product.get('product_images') or []:
-            url = img.get('image_url', '')
-            if url and not url.startswith('http') and not url.startswith('/'):
-                img['image_url'] = '/' + url
+        # Note: Image URLs are used as-is from Supabase storage
+        # No URL modification needed as Supabase returns full URLs
         return product
     
     def get_by_id_and_seller(self, product_id, seller_id):
@@ -48,11 +45,8 @@ class ProductModel:
             query = query.eq('category', category)
         result = query.order('created_at', desc=True).execute()
         products = result.data if result.data else []
-        for p in products:
-            for img in p.get('product_images') or []:
-                url = img.get('image_url', '')
-                if url and not url.startswith('http') and not url.startswith('/'):
-                    img['image_url'] = '/' + url
+        # Note: Image URLs are used as-is from Supabase storage
+        # No URL modification needed as Supabase returns full URLs
         return products
 
     def get_all(self, status=None):

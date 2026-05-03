@@ -57,7 +57,15 @@
             </div>
             <div class="form-group">
                 <label>Email Address</label>
-                <input type="email" id="email" placeholder="you@example.com" required>
+                <div style="display:flex;gap:8px">
+                    <input type="email" id="email" placeholder="you@example.com" required style="flex:1">
+                    <button type="button" class="btn" id="sendOtpBtn" style="width:auto;white-space:nowrap" onclick="sendOTP()">Send OTP</button>
+                </div>
+            </div>
+            <div class="form-group" id="otpGroup" style="display:none">
+                <label>Enter OTP</label>
+                <input type="text" id="otp" placeholder="6-digit code" maxlength="6">
+                <div id="otpTimer" style="font-size:12px;color:var(--pink);margin-top:4px"></div>
             </div>
             <div class="form-group">
                 <label>Phone Number</label>

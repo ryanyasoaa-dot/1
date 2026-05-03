@@ -26,7 +26,15 @@ CSRF_FORM_FIELD = 'csrf_token'
 _UNSAFE_METHODS = {'POST', 'PUT', 'PATCH', 'DELETE'}
 
 # Endpoints that are intentionally public (no session, no CSRF needed)
-_CSRF_EXEMPT = {'/login', '/register', '/logout'}
+# Note: API endpoints use X-CSRF-Token header from api.js, but auth endpoints need to be exempt
+# because they may be called before a session is established
+_CSRF_EXEMPT = {
+    '/login', '/register', '/logout', 
+    '/forgot-password', '/send-otp', '/verify-otp',
+    '/reset-password',
+    '/admin/api', '/seller/api', '/buyer/api', '/rider/api',
+    '/messages/api'
+}
 
 
 def generate_csrf_token() -> str:
@@ -40,6 +48,8 @@ def validate_csrf() -> bool:
     """Return True if the request carries a valid CSRF token."""
     expected = session.get(CSRF_TOKEN_KEY)
     if not expected:
+        # Generate token for next request if missing
+        session[CSRF_TOKEN_KEY] = secrets.token_hex(32)
         return False
     # Accept token from header (AJAX) or form field
     provided = (
@@ -57,7 +67,7 @@ def csrf_protect(f):
     """Decorator: enforce CSRF on unsafe methods for non-exempt routes."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        if request.method in _UNSAFE_METHODS and request.path not in _CSRF_EXEMPT:
+        if request.method in _UNSAFE_METHODS and not any(request.path.startswith(exempt) for exempt in _CSRF_EXEMPT):
             if not validate_csrf():
                 return jsonify({'error': 'Invalid or missing CSRF token.'}), 403
         return f(*args, **kwargs)
@@ -71,7 +81,7 @@ def init_csrf(app):
     """
     @app.before_request
     def _check_csrf():
-        if request.method in _UNSAFE_METHODS and request.path not in _CSRF_EXEMPT:
+        if request.method in _UNSAFE_METHODS and not any(request.path.startswith(exempt) for exempt in _CSRF_EXEMPT):
             if not validate_csrf():
                 # Return JSON for API paths, abort 403 for page paths
                 if request.path.startswith('/api') or request.is_json:
@@ -136,6 +146,107 @@ def rate_limit(max_calls: int = 10, window_seconds: int = 60):
             return f(*args, **kwargs)
         return decorated
     return decorator
+
+
+# ── Login Attempt Limiter (Anti-Brute Force) ──────────────────
+# Track failed login attempts per IP and email
+# Max 5 failed attempts before temporary lockout
+
+_login_attempts: dict[str, list[float]] = {}  # ip_or_email -> [timestamps]
+_login_lockouts: dict[str, float] = {}         # ip_or_email -> lockout_until
+MAX_LOGIN_ATTEMPTS = 5
+LOCKOUT_DURATION = 600  # 10 minutes in seconds
+MAX_LOGIN_DELAY = 5     # Maximum delay in seconds
+
+def check_login_lockout(identifier: str) -> tuple[bool, str]:
+    """
+    Check if an IP/email is locked out due to too many failed attempts.
+    Returns (is_locked, message)
+    """
+    now = time.monotonic()
+    
+    # Check if currently locked out
+    if identifier in _login_lockouts:
+        if now < _login_lockouts[identifier]:
+            remaining = int(_login_lockouts[identifier] - now)
+            return True, f'Too many failed attempts. Please try again in {remaining} seconds.'
+        else:
+            # Lockout expired, remove it
+            del _login_lockouts[identifier]
+    
+    # Check if exceeded attempts
+    if identifier in _login_attempts:
+        # Clean old attempts (older than 15 minutes)
+        _login_attempts[identifier] = [t for t in _login_attempts[identifier] if now - t < 900]
+        
+        if len(_login_attempts[identifier]) >= MAX_LOGIN_ATTEMPTS:
+            # Lock out for LOCKOUT_DURATION
+            _login_lockouts[identifier] = now + LOCKOUT_DURATION
+            return True, f'Too many failed attempts. Account locked for {LOCKOUT_DURATION // 60} minutes.'
+    
+    return False, ''
+
+def record_failed_login(identifier: str) -> tuple[int, int]:
+    """
+    Record a failed login attempt and return (attempts_remaining, delay_seconds).
+    """
+    now = time.monotonic()
+    
+    if identifier not in _login_attempts:
+        _login_attempts[identifier] = []
+    
+    # Clean old attempts
+    _login_attempts[identifier] = [t for t in _login_attempts[identifier] if now - t < 900]
+    _login_attempts[identifier].append(now)
+    
+    attempts = len(_login_attempts[identifier])
+    remaining = max(0, MAX_LOGIN_ATTEMPTS - attempts)
+    
+    # Calculate progressive delay (1s, 2s, 3s, 4s, 5s max)
+    delay = min(attempts, MAX_LOGIN_DELAY)
+    
+    return remaining, delay
+
+def clear_login_attempts(identifier: str):
+    """Clear login attempts after successful login."""
+    if identifier in _login_attempts:
+        del _login_attempts[identifier]
+    if identifier in _login_lockouts:
+        del _login_lockouts[identifier]
+
+def get_login_delay(identifier: str) -> int:
+    """Get the delay for the next login attempt based on previous failures."""
+    now = time.monotonic()
+    if identifier in _login_attempts:
+        # Clean old attempts
+        _login_attempts[identifier] = [t for t in _login_attempts[identifier] if now - t < 900]
+        attempts = len(_login_attempts[identifier])
+        return min(attempts, MAX_LOGIN_DELAY)
+    return 0
+
+
+# ── Password Validation ───────────────────────────────────────
+# Enforce minimum password requirements
+
+def validate_password(password: str) -> tuple[bool, str]:
+    """
+    Validate password meets security requirements:
+    - At least 8 characters
+    - Must include letters (A-Z)
+    - Must include numbers (0-9)
+    
+    Returns (is_valid, error_message)
+    """
+    if not password or len(password) < 8:
+        return False, 'Password must be at least 8 characters and include both letters and numbers.'
+    
+    has_letter = bool(re.search(r'[A-Za-z]', password))
+    has_number = bool(re.search(r'[0-9]', password))
+    
+    if not has_letter or not has_number:
+        return False, 'Password must be at least 8 characters and include both letters and numbers.'
+    
+    return True, ''
 
 
 # ── Input sanitisation ────────────────────────────────────────
