@@ -34,16 +34,35 @@ class MessageModel:
         return created.data[0] if created.data else None
 
     def get_conversations_for_user(self, user_id):
-        """All conversations where user is a participant, newest first."""
+        """All conversations where user is a participant, newest first.
+        Returns with 'other_user' containing name, profile info."""
         r1 = self.supabase.table('conversations').select(
-            '*, other:participant_2(id, first_name, last_name, role, profile_picture)'
+            '*'
         ).eq('participant_1', user_id).order('updated_at', desc=True).execute()
 
         r2 = self.supabase.table('conversations').select(
-            '*, other:participant_1(id, first_name, last_name, role, profile_picture)'
+            '*'
         ).eq('participant_2', user_id).order('updated_at', desc=True).execute()
 
         convs = (r1.data or []) + (r2.data or [])
+        # Fetch other user info
+        other_ids = []
+        for c in convs:
+            if c['participant_1'] == user_id:
+                other_ids.append(c['participant_2'])
+            else:
+                other_ids.append(c['participant_1'])
+        other_ids = list(set(other_ids))
+        users_res = self.supabase.table('users').select(
+            'id, first_name, last_name, role, profile_picture'
+        ).in_('id', other_ids).execute()
+        users_map = {u['id']: u for u in (users_res.data or [])}
+        # Attach other_user to each conversation
+        for c in convs:
+            if c['participant_1'] == user_id:
+                c['other_user'] = users_map.get(c['participant_2'])
+            else:
+                c['other_user'] = users_map.get(c['participant_1'])
         # Attach unread count per conversation
         for c in convs:
             unread = self.supabase.table('messages').select('id', count='exact') \
@@ -57,14 +76,30 @@ class MessageModel:
     def get_all_conversations(self):
         """Admin: all conversations with both participant details."""
         result = self.supabase.table('conversations').select(
-            '*, p1:participant_1(id, first_name, last_name, role), p2:participant_2(id, first_name, last_name, role)'
+            '*'
         ).order('updated_at', desc=True).execute()
-        rows = result.data or []
-        for c in rows:
+        convs = result.data or []
+        if not convs:
+            return []
+        # Fetch all participants (both p1 and p2)
+        all_user_ids = []
+        for c in convs:
+            all_user_ids.extend([c['participant_1'], c['participant_2']])
+        all_user_ids = list(set(all_user_ids))
+        users_res = self.supabase.table('users').select(
+            'id, first_name, last_name, role, email'
+        ).in_('id', all_user_ids).execute()
+        users_map = {u['id']: u for u in (users_res.data or [])}
+        # Attach participant details
+        for c in convs:
+            c['participant_1_data'] = users_map.get(c['participant_1'])
+            c['participant_2_data'] = users_map.get(c['participant_2'])
+        # Attach unread count per conversation
+        for c in convs:
             unread = self.supabase.table('messages').select('id', count='exact') \
                 .eq('conversation_id', c['id']).eq('is_read', False).execute()
             c['unread_count'] = unread.count or 0
-        return rows
+        return convs
 
     def get_conversation_by_id(self, conv_id):
         result = self.supabase.table('conversations').select('*').eq('id', conv_id).limit(1).execute()
@@ -73,10 +108,26 @@ class MessageModel:
     # ── Messages ──────────────────────────────────────────────
 
     def get_messages(self, conversation_id, limit=50):
+        """Get messages with sender and receiver user info."""
         result = self.supabase.table('messages').select(
-            '*, sender:sender_id(id, first_name, last_name, role, profile_picture)'
+            '*'
         ).eq('conversation_id', conversation_id).order('created_at', desc=False).limit(limit).execute()
-        return result.data or []
+        messages = result.data or []
+        if not messages:
+            return []
+        # Fetch user info for all sender_ids and receiver_ids
+        sender_ids = list(set(m['sender_id'] for m in messages))
+        receiver_ids = list(set(m['receiver_id'] for m in messages))
+        user_ids = list(set(sender_ids + receiver_ids))
+        users_res = self.supabase.table('users').select(
+            'id, first_name, last_name, role, profile_picture'
+        ).in_('id', user_ids).execute()
+        users_map = {u['id']: u for u in (users_res.data or [])}
+        # Attach user info to each message
+        for msg in messages:
+            msg['sender'] = users_map.get(msg['sender_id'])
+            msg['receiver'] = users_map.get(msg['receiver_id'])
+        return messages
 
     def send_message(self, conversation_id, sender_id, receiver_id, content, attachment_url=None):
         payload = {
@@ -118,10 +169,23 @@ class MessageModel:
             return self.get_messages(conversation_id, 50)
         after_ts = ref.data[0]['created_at']
         result = self.supabase.table('messages').select(
-            '*, sender:sender_id(id, first_name, last_name, role, profile_picture)'
+            '*'
         ).eq('conversation_id', conversation_id).gt('created_at', after_ts) \
          .order('created_at', desc=False).execute()
-        return result.data or []
+        messages = result.data or []
+        if not messages:
+            return []
+        sender_ids = list(set(m['sender_id'] for m in messages))
+        receiver_ids = list(set(m['receiver_id'] for m in messages))
+        user_ids = list(set(sender_ids + receiver_ids))
+        users_res = self.supabase.table('users').select(
+            'id, first_name, last_name, role, profile_picture'
+        ).in_('id', user_ids).execute()
+        users_map = {u['id']: u for u in (users_res.data or [])}
+        for msg in messages:
+            msg['sender'] = users_map.get(msg['sender_id'])
+            msg['receiver'] = users_map.get(msg['receiver_id'])
+        return messages
 
     def auto_message_sent(self, conversation_id, sender_id):
         """Check if sender already sent the auto welcome message in this conversation."""

@@ -158,32 +158,32 @@ async function loadConversations() {
     if (badge && total > 0) badge.textContent = `${total} unread`;
 }
 
-function renderConvs() {
-    const q = (document.getElementById('convSearch').value || '').toLowerCase();
-    let filtered = allConvs;
-    if (roleFilter !== 'all') {
-        filtered = filtered.filter(c => {
-            const p1 = c.p1 || {}; const p2 = c.p2 || {};
-            return p1.role === roleFilter || p2.role === roleFilter;
-        });
-    }
-    if (q) {
-        filtered = filtered.filter(c => {
-            const p1 = c.p1 || {}; const p2 = c.p2 || {};
-            const n1 = `${p1.first_name||''} ${p1.last_name||''}`.toLowerCase();
-            const n2 = `${p2.first_name||''} ${p2.last_name||''}`.toLowerCase();
-            return n1.includes(q) || n2.includes(q) || (c.last_message||'').toLowerCase().includes(q);
-        });
-    }
-    const list = document.getElementById('convList');
-    if (!filtered.length) { list.innerHTML = '<div style="padding:20px;text-align:center;color:#adb5bd;font-size:13px">No conversations found.</div>'; return; }
-    list.innerHTML = filtered.map(c => {
-        const p1 = c.p1 || {}; const p2 = c.p2 || {};
-        const n1 = `${p1.first_name||''} ${p1.last_name||''}`.trim();
-        const n2 = `${p2.first_name||''} ${p2.last_name||''}`.trim();
-        const label = `${n1} ↔ ${n2}`;
-        const unread = c.unread_count || 0;
-        return `
+    function renderConvs() {
+        const q = (document.getElementById('convSearch').value || '').toLowerCase();
+        let filtered = allConvs;
+        if (roleFilter !== 'all') {
+            filtered = filtered.filter(c => {
+                const p1 = c.participant_1_data || {}; const p2 = c.participant_2_data || {};
+                return p1.role === roleFilter || p2.role === roleFilter;
+            });
+        }
+        if (q) {
+            filtered = filtered.filter(c => {
+                const p1 = c.participant_1_data || {}; const p2 = c.participant_2_data || {};
+                const n1 = `${p1.first_name||''} ${p1.last_name||''}`.toLowerCase();
+                const n2 = `${p2.first_name||''} ${p2.last_name||''}`.toLowerCase();
+                return n1.includes(q) || n2.includes(q) || (c.last_message||'').toLowerCase().includes(q);
+            });
+        }
+        const list = document.getElementById('convList');
+        if (!filtered.length) { list.innerHTML = '<div style="padding:20px;text-align:center;color:#adb5bd;font-size:13px">No conversations found.</div>'; return; }
+        list.innerHTML = filtered.map(c => {
+            const p1 = c.participant_1_data || {}; const p2 = c.participant_2_data || {};
+            const n1 = `${p1.first_name||''} ${p1.last_name||''}`.trim();
+            const n2 = `${p2.first_name||''} ${p2.last_name||''}`.trim();
+            const label = `${n1} ↔ ${n2}`;
+            const unread = c.unread_count || 0;
+            return `
         <div class="conv-item ${c.id === activeConvId ? 'active' : ''}" onclick="openConversation('${c.id}')">
             <div class="conv-avatar">${(n1[0]||'?').toUpperCase()}</div>
             <div class="conv-info">
@@ -195,8 +195,8 @@ function renderConvs() {
             </div>
             ${unread > 0 ? `<span class="conv-badge">${unread}</span>` : ''}
         </div>`;
-    }).join('');
-}
+        }).join('');
+    }
 
 function filterRole(role, btn) {
     roleFilter = role;
@@ -207,31 +207,32 @@ function filterRole(role, btn) {
 
 function filterSearch() { renderConvs(); }
 
-async function openConversation(convId) {
-    activeConvId = convId;
-    clearInterval(pollTimer);
-    lastMsgId = null;
-    document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
+    async function openConversation(convId) {
+        activeConvId = convId;
+        clearInterval(pollTimer);
+        lastMsgId = null;
+        document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
 
-    const conv = allConvs.find(c => c.id === convId);
-    const p1 = conv?.p1 || {}; const p2 = conv?.p2 || {};
-    const n1 = `${p1.first_name||''} ${p1.last_name||''}`.trim();
-    const n2 = `${p2.first_name||''} ${p2.last_name||''}`.trim();
+        const conv = allConvs.find(c => c.id === convId);
+        const p1 = conv ? (conv.participant_1_data || {}) : {};
+        const p2 = conv ? (conv.participant_2_data || {}) : {};
+        const n1 = `${p1.first_name||''} ${p1.last_name||''}`.trim();
+        const n2 = `${p2.first_name||''} ${p2.last_name||''}`.trim();
 
-    document.getElementById('chatTopAvatar').textContent = (n1[0]||'?').toUpperCase();
-    document.getElementById('chatTopName').textContent = `${n1} ↔ ${n2}`;
-    document.getElementById('chatTopMeta').innerHTML =
-        `<span class="role-badge role-${p1.role||''}">${p1.role||''}</span> &nbsp;
-         <span class="role-badge role-${p2.role||''}">${p2.role||''}</span>`;
+        document.getElementById('chatTopAvatar').textContent = (n1[0]||'?').toUpperCase();
+        document.getElementById('chatTopName').textContent = `${n1} ↔ ${n2}`;
+        document.getElementById('chatTopMeta').innerHTML =
+            '<span class="role-badge role-' + (p1.role||'') + '">' + (p1.role||'') + '</span> &nbsp;
+            <span class="role-badge role-' + (p2.role||'') + '">' + (p2.role||'') + '</span>';
 
-    document.getElementById('chatEmpty').style.display = 'none';
-    document.getElementById('chatActive').style.display = 'flex';
+        document.getElementById('chatEmpty').style.display = 'none';
+        document.getElementById('chatActive').style.display = 'flex';
 
-    await loadMessages(convId);
-    pollTimer = setInterval(() => pollMessages(convId), 3000);
-    history.replaceState(null, '', `/messages/admin?conv=${convId}`);
-    renderConvs();
-}
+        await loadMessages(convId);
+        pollTimer = setInterval(() => pollMessages(convId), 3000);
+        history.replaceState(null, '', `/messages/admin?conv=${convId}`);
+        renderConvs();
+    }
 
 async function loadMessages(convId) {
     const msgs = await fetch(`/messages/api/conversations/${convId}/messages`).then(r => r.json()).catch(() => []);
