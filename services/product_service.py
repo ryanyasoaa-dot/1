@@ -20,7 +20,6 @@ class ProductService:
         # Validate required fields
         name = form_data.get('name', '').strip()
         category = form_data.get('category', '').strip()
-        price = form_data.get('price', '').strip()
         description = form_data.get('description', '').strip() or None
         
         if not name:
@@ -33,25 +32,22 @@ class ProductService:
         if category not in valid_categories:
             return {'success': False, 'error': 'Invalid category.'}
         
-        try:
-            price_val = float(price)
-            if price_val <= 0:
-                return {'success': False, 'error': 'Price must be greater than 0.'}
-        except (ValueError, TypeError):
-            return {'success': False, 'error': 'Invalid price.'}
-        
         # Parse variants
         variants = self._parse_variants(form_data)
         if len(variants) == 0:
             return {'success': False, 'error': 'At least one variant is required.'}
         
-        # Validate no duplicate variants
+        # Validate no duplicate variants and ensure all variants have prices
         seen = set()
         for v in variants:
             key = (v['variant_type'], v['value'])
             if key in seen:
                 return {'success': False, 'error': f'Duplicate variant: {v["value"]}'}
             seen.add(key)
+            
+            # Validate variant price
+            if v.get('price') is None or v.get('price') <= 0:
+                return {'success': False, 'error': f'Variant {v["value"]} must have a valid price greater than 0.'}
         
         # Process images
         image_files = files.getlist('images[]')
@@ -77,7 +73,6 @@ class ProductService:
                 'name': name,
                 'description': description,
                 'category': category,
-                'price': price_val,
                 'total_stock': sum(v['stock'] for v in variants),
                 'status': 'pending'
             }
@@ -100,6 +95,7 @@ class ProductService:
                     'variant_type': v['variant_type'],
                     'value':        v['value'],
                     'stock':        v['stock'],
+                    'price':        v['price'],
                     'sku':          sku
                 })
                 if not created_variant:
@@ -157,14 +153,7 @@ class ProductService:
             description = form_data.get('description', '').strip() or None
             update_data['description'] = description
         
-        if 'price' in form_data:
-            try:
-                price_val = float(form_data.get('price', '').strip())
-                if price_val > 0:
-                    update_data['price'] = price_val
-            except (ValueError, TypeError):
-                pass
-        
+                
         if 'status' in form_data:
             status = form_data.get('status')
             if status in ('pending', 'active', 'rejected'):
@@ -232,9 +221,11 @@ class ProductService:
                 v_stock_int = 0
 
             try:
-                v_price_val = float(v_price) if v_price else None
+                v_price_val = float(v_price) if v_price else 0.0
+                if v_price_val <= 0:
+                    v_price_val = 0.0  # Will be validated later
             except ValueError:
-                v_price_val = None
+                v_price_val = 0.0
 
             variants.append({
                 'variant_type': v_type,

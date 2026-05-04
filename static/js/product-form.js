@@ -9,6 +9,28 @@ let pfVariants = [];   // [{ id, color, hex, price, stock }]
 let pfImages   = {};   // { variantId: File, 'general': File[] }
 let pfVarIdSeq = 0;
 
+// ── Predefined colors and sizes (hardcoded for simplicity)
+const pfPredefinedColors = [
+    { name: 'Black', hex: '#000000' },
+    { name: 'White', hex: '#FFFFFF' },
+    { name: 'Red', hex: '#FF0000' },
+    { name: 'Blue', hex: '#0000FF' },
+    { name: 'Green', hex: '#008000' },
+    { name: 'Yellow', hex: '#FFFF00' },
+    { name: 'Orange', hex: '#FFA500' },
+    { name: 'Purple', hex: '#800080' },
+    { name: 'Pink', hex: '#FFC0CB' },
+    { name: 'Brown', hex: '#A52A2A' },
+    { name: 'Gray', hex: '#808080' },
+    { name: 'Navy', hex: '#000080' },
+    { name: 'Maroon', hex: '#800000' },
+    { name: 'Olive', hex: '#808000' },
+    { name: 'Teal', hex: '#008080' },
+    { name: 'Silver', hex: '#C0C0C0' }
+];
+
+const pfPredefinedSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', 'One Size'];
+
 // ── Color name from hex ──────────────────────────────────────
 const COLOR_MAP = [
     { name: 'Black',     hex: '#1a1a1a' },
@@ -62,6 +84,17 @@ function colorNameFromHex(hex) {
 document.addEventListener('DOMContentLoaded', () => {
     pfImages['general'] = [];
     pfGoTo(1);
+    
+    // Set up product discount event listeners
+    const productDiscountType = document.getElementById('pfProductDiscountType');
+    const productDiscountValue = document.getElementById('pfProductDiscountValue');
+    
+    if (productDiscountType) {
+        productDiscountType.addEventListener('change', pfUpdateProductDiscount);
+    }
+    if (productDiscountValue) {
+        productDiscountValue.addEventListener('input', pfUpdateProductDiscount);
+    }
 });
 
 // ── Step navigation ───────────────────────────────────────────
@@ -94,8 +127,6 @@ function pfGoTo(step) {
 function pfValidate(step) {
     if (step === 1) {
         if (!pfVal('pfName'))      return pfShowError('Product name is required.');
-        if (!pfVal('pfBasePrice') || parseFloat(pfVal('pfBasePrice')) <= 0)
-                                   return pfShowError('Base price must be greater than 0.');
         if (!pfVal('pfCategory'))  return pfShowError('Category is missing. Please contact support.');
         return true;
     }
@@ -133,20 +164,26 @@ function pfHideError() {
 }
 
 // ── Step 2: Variants ──────────────────────────────────────────
-function pfAddVariant(presetColor = null) {
+function pfAddVariant(color = null, hex = null, size = null) {
     if (pfVariants.length >= 10) return pfShowError('Maximum 10 variants allowed.');
 
-    const hex   = presetColor?.hex || '#cccccc';
-    const color = colorNameFromHex(hex);
-
-    // Prevent duplicate by hex
-    const normalHex = hex.toLowerCase();
-    if (pfVariants.some(v => v.hex.toLowerCase() === normalHex)) {
-        return pfShowError(`A variant with this color already exists.`);
+    // Prevent duplicate by size + color combination
+    const variantKey = `${size || 'One Size'}-${color || 'Default'}`;
+    if (pfVariants.some(v => `${v.size || 'One Size'}-${v.color || 'Default'}` === variantKey)) {
+        return pfShowError(`A variant with this size and color combination already exists.`);
     }
 
     const id = ++pfVarIdSeq;
-    pfVariants.push({ id, color, hex, price: parseFloat(pfVal('pfBasePrice')) || 0, stock: 0 });
+    pfVariants.push({ 
+        id, 
+        color: color || 'Default', 
+        hex: hex || '#808080',
+        size: size || 'One Size',
+        price: 0, 
+        stock: 0,
+        discount_type: 'none',
+        discount_value: 0
+    });
     pfImages[id] = null;
     pfRenderVariants();
 }
@@ -163,18 +200,18 @@ function pfRenderVariants() {
 
     if (pfVariants.length === 0) {
         list.innerHTML = `
-            <div class="pf-empty">No variants yet. Choose a color below or add a custom one.</div>
-            <div class="pf-color-palette" id="pfPalette"></div>`;
-        pfRenderPalette();
-        document.getElementById('pfAddVariantBtn').style.display = 'inline-flex';
+            <div class="pf-empty">No variants yet. Choose a size and color below or add custom ones.</div>
+            <div class="pf-variant-creator" id="pfVariantCreator"></div>`;
+        pfRenderVariantCreator();
+        document.getElementById('pfAddVariantBtn').style.display = 'none';
         return;
     }
 
     list.innerHTML = `
-        <div class="pf-color-palette" id="pfPalette"></div>
+        <div class="pf-variant-creator" id="pfVariantCreator"></div>
         <div class="pf-variant-list" id="pfVarItems"></div>`;
 
-    pfRenderPalette();
+    pfRenderVariantCreator();
 
     const items = document.getElementById('pfVarItems');
     pfVariants.forEach(v => {
@@ -182,8 +219,22 @@ function pfRenderVariants() {
         row.className = 'pf-variant-row';
         row.id = `pfVar-${v.id}`;
         row.innerHTML = `
-            <div class="pf-var-color-preview" style="background:${v.hex}" title="${v.color}"></div>
+            <div class="pf-var-preview">
+                <div class="pf-var-color-preview" style="background:${v.hex}" title="${v.color}"></div>
+                <div class="pf-var-size-label">${v.size || 'One Size'}</div>
+            </div>
             <div class="pf-var-fields">
+                <div class="pf-var-field">
+                    <label class="pf-label-sm">Size</label>
+                    <select class="pf-input-sm" id="pfSize-${v.id}" onchange="pfUpdateVariant(${v.id}, 'size', this.value)">
+                        ${pfPredefinedSizes.map(size => 
+                            `<option value="${size}" ${v.size === size ? 'selected' : ''}>${size}</option>`
+                        ).join('')}
+                        <option value="custom">Custom Size</option>
+                    </select>
+                    <input type="text" class="pf-input-sm" id="pfCustomSize-${v.id}" placeholder="Custom size" 
+                           style="display:none; margin-top:4px;" onchange="pfUpdateVariant(${v.id}, 'size', this.value)">
+                </div>
                 <div class="pf-var-field">
                     <label class="pf-label-sm">Color Name</label>
                     <input class="pf-input-sm" type="text" value="${v.color}" readonly
@@ -207,6 +258,19 @@ function pfRenderVariants() {
                     <input class="pf-input-sm" type="number" min="0" value="${v.stock}"
                            onchange="pfUpdateVariant(${v.id},'stock',parseInt(this.value)||0)">
                 </div>
+                <div class="pf-var-field">
+                    <label class="pf-label-sm">Variant Discount</label>
+                    <select class="pf-input-sm" id="pfDiscountType-${v.id}" onchange="pfUpdateVariantDiscount(${v.id})">
+                        <option value="none" ${v.discount_type === 'none' ? 'selected' : ''}>No Discount</option>
+                        <option value="percentage" ${v.discount_type === 'percentage' ? 'selected' : ''}>Percentage (%)</option>
+                        <option value="fixed_amount" ${v.discount_type === 'fixed_amount' ? 'selected' : ''}>Fixed Amount (₱)</option>
+                    </select>
+                    <input type="number" class="pf-input-sm" id="pfDiscountValue-${v.id}" 
+                           placeholder="0.00" min="0" step="0.01" value="${v.discount_value}"
+                           style="display:${v.discount_type === 'none' ? 'none' : 'block'}; margin-top:4px;"
+                           onchange="pfUpdateVariantDiscount(${v.id})">
+                    <small class="pf-discount-preview" id="pfDiscountPreview-${v.id}" style="display:block; margin-top:2px; color:#28a745;"></small>
+                </div>
             </div>
             <button type="button" class="pf-var-remove" onclick="pfRemoveVariant(${v.id})" title="Remove">×</button>`;
         items.appendChild(row);
@@ -215,25 +279,180 @@ function pfRenderVariants() {
     document.getElementById('pfAddVariantBtn').style.display = pfVariants.length >= 10 ? 'none' : 'inline-flex';
 }
 
-function pfRenderPalette() {
-    const palette = document.getElementById('pfPalette');
-    if (!palette) return;
+function pfRenderVariantCreator() {
+    const creator = document.getElementById('pfVariantCreator');
+    if (!creator) return;
+    
     const usedHexes = pfVariants.map(v => v.hex.toLowerCase());
-    palette.innerHTML = COLOR_MAP.map(c => {
-        const used = usedHexes.includes(c.hex.toLowerCase());
-        return `<button type="button" class="pf-palette-swatch ${used ? 'used' : ''}"
-                    style="background:${c.hex}" title="${c.name}"
-                    onclick="${used ? '' : `pfAddVariant({name:'${c.name}',hex:'${c.hex}'})`}"
-                    ${used ? 'disabled' : ''}>
-                    ${used ? '✓' : ''}
-                </button>`;
-    }).join('');
+    const usedSizes = pfVariants.map(v => v.size || 'One Size');
+    
+    creator.innerHTML = `
+        <div class="pf-creator-section">
+            <div class="pf-creator-group">
+                <label class="pf-label-sm">Select Size</label>
+                <select id="pfCreatorSize" class="pf-input-sm" style="width: 100%;">
+                    <option value="">Choose size...</option>
+                    ${pfPredefinedSizes.map(size => 
+                        `<option value="${size}" ${usedSizes.includes(size) ? 'disabled' : ''}>${size} ${usedSizes.includes(size) ? '(used)' : ''}</option>`
+                    ).join('')}
+                    <option value="custom">Custom Size</option>
+                </select>
+                <input type="text" id="pfCreatorCustomSize" placeholder="Enter custom size" 
+                       class="pf-input-sm" style="width: 100%; margin-top: 4px; display: none;">
+            </div>
+            
+            <div class="pf-creator-group">
+                <label class="pf-label-sm">Select Color</label>
+                <div class="pf-color-grid">
+                    ${pfPredefinedColors.map(color => {
+                        const used = usedHexes.includes(color.hex.toLowerCase());
+                        return `<button type="button" class="pf-color-swatch ${used ? 'used' : ''}"
+                                    style="background:${color.hex}" title="${color.name}"
+                                    onclick="${used ? '' : `pfSelectCreatorColor('${color.name}', '${color.hex}')`}"
+                                    ${used ? 'disabled' : ''}>
+                                    ${used ? '✓' : ''}
+                                </button>`;
+                    }).join('')}
+                </div>
+                <div class="pf-custom-color" style="margin-top: 8px;">
+                    <label class="pf-label-sm">Custom Color</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="color" id="pfCreatorCustomColor" value="#808080">
+                        <input type="text" id="pfCreatorCustomColorName" placeholder="Color name" class="pf-input-sm" style="flex: 1;">
+                    </div>
+                </div>
+            </div>
+            
+            <button type="button" class="pf-add-btn" onclick="pfAddVariantFromCreator()" style="width: 100%; margin-top: 12px;">
+                + Add Variant
+            </button>
+        </div>
+    `;
+    
+    // Handle size selection change
+    const sizeSelect = document.getElementById('pfCreatorSize');
+    const customSizeInput = document.getElementById('pfCreatorCustomSize');
+    if (sizeSelect) {
+        sizeSelect.addEventListener('change', function() {
+            customSizeInput.style.display = this.value === 'custom' ? 'block' : 'none';
+        });
+    }
+}
+
+function pfSelectCreatorColor(name, hex) {
+    document.getElementById('pfCreatorCustomColor').value = hex;
+    document.getElementById('pfCreatorCustomColorName').value = name;
+}
+
+function pfAddVariantFromCreator() {
+    const sizeSelect = document.getElementById('pfCreatorSize');
+    const customSizeInput = document.getElementById('pfCreatorCustomSize');
+    const customColorInput = document.getElementById('pfCreatorCustomColor');
+    const customColorName = document.getElementById('pfCreatorCustomColorName');
+    
+    let size = sizeSelect.value;
+    if (size === 'custom') {
+        size = customSizeInput.value.trim();
+        if (!size) {
+            return pfShowError('Please enter a custom size.');
+        }
+    } else if (!size) {
+        return pfShowError('Please select a size.');
+    }
+    
+    const colorName = customColorName.value.trim() || 'Custom Color';
+    const colorHex = customColorInput.value;
+    
+    pfAddVariant(colorName, colorHex, size);
 }
 
 function pfUpdateVariant(id, field, value) {
     const v = pfVariants.find(v => v.id === id);
     if (!v) return;
     v[field] = value;
+    
+    // Handle custom size display
+    if (field === 'size' && value === 'custom') {
+        const customInput = document.getElementById(`pfCustomSize-${id}`);
+        const sizeSelect = document.getElementById(`pfSize-${id}`);
+        customInput.style.display = 'block';
+        sizeSelect.style.display = 'none';
+    } else if (field === 'size' && value !== 'custom') {
+        const customInput = document.getElementById(`pfCustomSize-${id}`);
+        const sizeSelect = document.getElementById(`pfSize-${id}`);
+        customInput.style.display = 'none';
+        sizeSelect.style.display = 'block';
+    }
+}
+
+function pfUpdateVariantDiscount(id) {
+    const v = pfVariants.find(v => v.id === id);
+    if (!v) return;
+    
+    const typeSelect = document.getElementById(`pfDiscountType-${id}`);
+    const valueInput = document.getElementById(`pfDiscountValue-${id}`);
+    const preview = document.getElementById(`pfDiscountPreview-${id}`);
+    
+    v.discount_type = typeSelect.value;
+    v.discount_value = parseFloat(valueInput.value) || 0;
+    
+    // Show/hide value input based on type
+    valueInput.style.display = v.discount_type === 'none' ? 'none' : 'block';
+    
+    // Calculate and show discounted price
+    if (v.discount_type !== 'none' && v.discount_value > 0 && v.price > 0) {
+        let finalPrice = v.price;
+        if (v.discount_type === 'percentage') {
+            finalPrice = v.price * (1 - v.discount_value / 100);
+        } else if (v.discount_type === 'fixed_amount') {
+            finalPrice = Math.max(0, v.price - v.discount_value);
+        }
+        
+        preview.textContent = `Final price: ₱${finalPrice.toLocaleString('en-PH', {minimumFractionDigits: 2})}`;
+        preview.style.display = 'block';
+    } else {
+        preview.textContent = '';
+    }
+}
+
+function pfUpdateProductDiscount() {
+    const typeSelect = document.getElementById('pfProductDiscountType');
+    const valueInput = document.getElementById('pfProductDiscountValue');
+    const preview = document.getElementById('pfProductDiscountPreview');
+    
+    // Show/hide value input based on type
+    valueInput.style.display = typeSelect.value === 'none' ? 'none' : 'block';
+    
+    // Calculate preview for all variants
+    const discountType = typeSelect.value;
+    const discountValue = parseFloat(valueInput.value) || 0;
+    
+    if (discountType !== 'none' && discountValue > 0) {
+        let previewText = `Product discount: ${discountType === 'percentage' ? discountValue + '%' : '₱' + discountValue}`;
+        
+        // Show impact on variants
+        const variantPrices = pfVariants.map(v => {
+            if (v.price > 0) {
+                let finalPrice = v.price;
+                if (discountType === 'percentage') {
+                    finalPrice = v.price * (1 - discountValue / 100);
+                } else if (discountType === 'fixed_amount') {
+                    finalPrice = Math.max(0, v.price - discountValue);
+                }
+                return `₱${finalPrice.toLocaleString('en-PH', {minimumFractionDigits: 2})}`;
+            }
+            return null;
+        }).filter(p => p !== null);
+        
+        if (variantPrices.length > 0) {
+            previewText += ` | Variant prices: ${variantPrices.join(', ')}`;
+        }
+        
+        preview.textContent = previewText;
+        preview.style.display = 'block';
+    } else {
+        preview.textContent = '';
+    }
 }
 
 function pfOnHexChange(id, hex) {
@@ -363,15 +582,33 @@ function pfBuildReview() {
         const price = parseFloat(v.price);
         const stock = parseInt(v.stock);
         const hasImg = !!pfImages[v.id];
+        const imgHtml = hasImg ? `<img src="${URL.createObjectURL(pfImages[v.id])}" class="pf-review-variant-img" alt="${v.color}">` : '<span class="pf-review-img-missing">⚠️ Missing</span>';
+        
+        // Calculate final price after discount
+        let finalPrice = price;
+        let discountInfo = '';
+        if (v.discount_type !== 'none' && v.discount_value > 0) {
+            if (v.discount_type === 'percentage') {
+                finalPrice = price * (1 - v.discount_value / 100);
+                discountInfo = ` (${v.discount_value}% off)`;
+            } else if (v.discount_type === 'fixed_amount') {
+                finalPrice = Math.max(0, price - v.discount_value);
+                discountInfo = ` (-₱${v.discount_value})`;
+            }
+        }
+        
         return `
         <div class="pf-review-variant">
-            <span class="pf-review-color">
+            <span class="pf-review-variant-info">
                 <span class="pf-var-dot" style="background:${v.hex};display:inline-block;vertical-align:middle;margin-right:6px"></span>
-                ${v.color}
+                ${v.size} - ${v.color}
             </span>
-            <span class="pf-review-price">₱${price.toLocaleString('en-PH', {minimumFractionDigits:2})}</span>
+            <span class="pf-review-price">
+                ₱${finalPrice.toLocaleString('en-PH', {minimumFractionDigits:2})}
+                ${discountInfo ? `<small style="color:#28a745">${discountInfo}</small>` : ''}
+            </span>
             <span class="pf-review-stock">${stock} pcs</span>
-            <span class="pf-review-img">${hasImg ? '🖼️ Set' : '⚠️ Missing'}</span>
+            <span class="pf-review-img">${imgHtml}</span>
         </div>`;
     }).join('');
 
@@ -380,16 +617,31 @@ function pfBuildReview() {
             <div class="pf-review-title">📝 Basic Info</div>
             <div class="pf-review-row"><span>Name</span><strong>${pfVal('pfName')}</strong></div>
             <div class="pf-review-row"><span>Category</span><strong>${pfVal('pfCategory')}</strong></div>
-            <div class="pf-review-row"><span>Base Price</span><strong>₱${parseFloat(pfVal('pfBasePrice')).toLocaleString('en-PH',{minimumFractionDigits:2})}</strong></div>
             <div class="pf-review-row"><span>Description</span><strong>${pfVal('pfDesc') || '—'}</strong></div>
         </div>
         <div class="pf-review-section">
             <div class="pf-review-title">🎨 Variants (${pfVariants.length})</div>
             <div class="pf-review-variant-header">
-                <span>Color</span><span>Price</span><span>Stock</span><span>Image</span>
+                <span>Variant</span><span>Final Price</span><span>Stock</span><span>Image</span>
             </div>
             ${varRows}
         </div>
+        ${(() => {
+            const productDiscountType = document.getElementById('pfProductDiscountType')?.value || 'none';
+            const productDiscountValue = parseFloat(document.getElementById('pfProductDiscountValue')?.value || 0);
+            
+            if (productDiscountType !== 'none' && productDiscountValue > 0) {
+                return `
+                <div class="pf-review-section">
+                    <div class="pf-review-title">🏷️ Product Discount</div>
+                    <div class="pf-review-row">
+                        <span>Discount Type</span>
+                        <strong>${productDiscountType === 'percentage' ? productDiscountValue + '%' : '₱' + productDiscountValue}</strong>
+                    </div>
+                </div>`;
+            }
+            return '';
+        })()}
         <div class="pf-review-section">
             <div class="pf-review-title">📷 General Images</div>
             <div class="pf-img-grid">
@@ -410,16 +662,24 @@ async function pfSubmit() {
     fd.append('name',        pfVal('pfName'));
     fd.append('description', pfVal('pfDesc'));
     fd.append('category',    pfVal('pfCategory'));
-    fd.append('price',       pfVal('pfBasePrice'));
 
     pfVariants.forEach((v, i) => {
-        fd.append(`variants[${i}][type]`,  'color');
-        fd.append(`variants[${i}][value]`, v.color);
-        fd.append(`variants[${i}][hex]`,   v.hex);
-        fd.append(`variants[${i}][price]`, v.price);
-        fd.append(`variants[${i}][stock]`, v.stock);
+        fd.append(`variants[${i}][type]`,         'color');
+        fd.append(`variants[${i}][value]`,        v.color);
+        fd.append(`variants[${i}][hex]`,          v.hex);
+        fd.append(`variants[${i}][size]`,         v.size || 'One Size');
+        fd.append(`variants[${i}][price]`,        v.price);
+        fd.append(`variants[${i}][stock]`,        v.stock);
+        fd.append(`variants[${i}][discount_type]`, v.discount_type || 'none');
+        fd.append(`variants[${i}][discount_value]`, v.discount_value || 0);
         if (pfImages[v.id]) fd.append(`variant_image_${i}`, pfImages[v.id]);
     });
+    
+    // Add product discount information
+    const productDiscountType = document.getElementById('pfProductDiscountType')?.value || 'none';
+    const productDiscountValue = parseFloat(document.getElementById('pfProductDiscountValue')?.value || 0);
+    fd.append('discount_type', productDiscountType);
+    fd.append('discount_value', productDiscountValue);
 
     pfImages['general'].forEach(f => fd.append('images[]', f));
 

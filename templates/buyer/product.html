@@ -400,6 +400,24 @@ function selectVariant(variantId, el) {
         // Reset quantity to 1 (or 0 if out of stock)
         pdQty = currentStock > 0 ? 1 : 0;
         qtyInput.value = pdQty;
+        // Update price display for this variant (show final price after discount)
+        const priceEl = document.getElementById('pdPrice');
+        if (priceEl && v.final_price && v.final_price > 0) {
+            let priceHtml = formatCurrency(v.final_price);
+            
+            // Show original price and discount info if applicable
+            if (v.discount_type !== 'none' && v.discount_value > 0 && v.final_price < v.price) {
+                priceHtml += `
+                    <span style="text-decoration: line-through; color: #999; font-size: 14px; margin-left: 8px;">
+                        ${formatCurrency(v.price)}
+                    </span>
+                    <span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin-left: 4px;">
+                        ${v.discount_type === 'percentage' ? v.discount_value + '% OFF' : '-₱' + v.discount_value}
+                    </span>
+                `;
+            }
+            priceEl.innerHTML = priceHtml;
+        }
         // Update carousel images for this variant
         updateCarouselImages(variantId);
     }

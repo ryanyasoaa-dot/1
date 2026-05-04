@@ -45,6 +45,12 @@
                 <div class="summary-row"><span>Status</span><span id="orderStatus">—</span></div>
             </div>
 
+            <!-- Order items -->
+            <div class="settings-card mb-4">
+                <h5>Order Items</h5>
+                <div id="orderItems"></div>
+            </div>
+
             <!-- Delivery timeline -->
             <div class="settings-card mb-4">
                 <h5>Delivery Status</h5>
@@ -90,8 +96,116 @@
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
 <script src="{{ url_for('static', filename='js/shop.js') }}"></script>
 <script>
+// Load order details
+async function loadOrderDetails() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderId = urlParams.get('id');
+    
+    if (!orderId) {
+        console.error('No order ID provided');
+        return;
+    }
+
+    try {
+        const order = await API.buyer.getOrder(orderId);
+        if (!order) {
+            throw new Error('Order not found');
+        }
+
+        // Update order details
+        document.getElementById('orderId').textContent = (order.order_id || '').slice(0,8).toUpperCase();
+        document.getElementById('orderDate').textContent = new Date(order.created_at).toLocaleDateString('en-PH', {
+            year: 'numeric', month: 'long', day: 'numeric'
+        });
+        document.getElementById('orderTotal').textContent = `₱${Number(order.total_price || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}`;
+        document.getElementById('orderStatus').textContent = (order.status || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+        // Update order items
+        renderOrderItems(order.items || []);
+
+        // Update timeline
+        updateTimeline(order.status);
+
+    } catch (error) {
+        console.error('Failed to load order:', error);
+    }
+}
+
+function renderOrderItems(items) {
+    const container = document.getElementById('orderItems');
+    if (!container) return;
+
+    if (!items.length) {
+        container.innerHTML = '<p style="color: #999; text-align: center;">No items found</p>';
+        return;
+    }
+
+    container.innerHTML = items.map(item => {
+        const variant = item.variant || {};
+        const size = variant.size || 'One Size';
+        const color = variant.color || 'Default';
+        const colorHex = variant.color_hex || '#808080';
+        
+        // Check if item has discount
+        const hasDiscount = variant.discount_type !== 'none' && variant.discount_value > 0;
+        const discountText = hasDiscount ? 
+            (variant.discount_type === 'percentage' ? `${variant.discount_value}% OFF` : `-₱${variant.discount_value}`) : '';
+
+        return `
+            <div class="order-item" style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0f0f0;">
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; margin-bottom: 4px;">${item.product_name}</div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                        ${colorHex ? `
+                            <div style="width: 16px; height: 16px; background: ${colorHex}; border-radius: 50%; border: 2px solid #e8e8f0;"></div>
+                        ` : ''}
+                        <span style="font-size: 13px; color: #666;">${size} - ${color}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 14px;">₱${Number(item.final_price || item.unit_price).toLocaleString('en-PH', {minimumFractionDigits: 2})} × ${item.quantity}</span>
+                        ${hasDiscount ? `
+                            <span style="font-size: 12px; color: #28a745; background: #e8f5e8; padding: 2px 6px; border-radius: 4px;">${discountText}</span>
+                        ` : ''}
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-weight: 600; color: var(--pink);">
+                        ₱${Number(item.total_price).toLocaleString('en-PH', {minimumFractionDigits: 2})}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateTimeline(status) {
+    const steps = ['pending', 'processing', 'ready_for_pickup', 'in_transit', 'delivered'];
+    const currentIndex = steps.indexOf(status);
+
+    steps.forEach((step, index) => {
+        const stepElement = document.getElementById(`step-${step}`);
+        const dateElement = document.getElementById(`step-${step}-date`);
+        
+        if (stepElement) {
+            stepElement.classList.toggle('done', index <= currentIndex);
+            stepElement.classList.toggle('active', index === currentIndex);
+        }
+        
+        if (dateElement) {
+            if (index <= currentIndex) {
+                dateElement.textContent = index === 0 ? 'Completed' : 
+                    (index < currentIndex ? 'Completed' : 'In Progress');
+            } else {
+                dateElement.textContent = 'Pending';
+            }
+        }
+    });
+}
+
 // Sync order date to timeline
 document.addEventListener('DOMContentLoaded', () => {
+    loadOrderDetails();
+    
     const d = document.getElementById('orderDate');
     const d2 = document.getElementById('orderDate2');
     if (d && d2) {

@@ -9,6 +9,9 @@ let pickupMarker = null;
 let deliveryMarker = null;
 let routeLine = null;
 let currentDeliveryId = null;
+let allMarkers = []; // Array to store all markers for multi-order view
+let allRoutes = []; // Array to store all route lines for multi-order view
+let isMultiOrderView = false; // Flag to track if showing multiple orders
 
 // ── Helpers ───────────────────────────────────────────────────
 function formatDate(iso) {
@@ -203,6 +206,157 @@ function hideMap() {
     const mapContainer = document.getElementById('mapContainer');
     mapContainer.style.display = 'none';
     currentDeliveryId = null;
+    clearMultiOrderView();
+}
+
+function clearMultiOrderView() {
+    // Clear all markers and routes from multi-order view
+    allMarkers.forEach(marker => {
+        if (deliveryMap && marker) deliveryMap.removeLayer(marker);
+    });
+    allRoutes.forEach(route => {
+        if (deliveryMap && route) deliveryMap.removeLayer(route);
+    });
+    allMarkers = [];
+    allRoutes = [];
+    isMultiOrderView = false;
+}
+
+async function showAllOrdersMap() {
+    if (!deliveryMap) {
+        initializeMap();
+        if (!deliveryMap) return;
+    }
+
+    const mapContainer = document.getElementById('mapContainer');
+    const mapTitle = document.getElementById('mapTitle');
+    
+    mapContainer.style.display = 'block';
+    mapTitle.textContent = 'All Active Deliveries';
+    
+    // Clear existing markers and routes
+    clearMultiOrderView();
+    isMultiOrderView = true;
+
+    try {
+        // Get all assigned orders for this rider
+        const data = await API.rider.getDeliveries().catch(() => []);
+        const assignedOrders = data.filter(d => d.status === 'in_transit');
+        
+        if (assignedOrders.length === 0) {
+            document.getElementById('pickupAddress').textContent = 'No active deliveries found';
+            document.getElementById('deliveryAddress').textContent = 'No active deliveries found';
+            document.getElementById('routeDistance').textContent = 'No active deliveries';
+            return;
+        }
+
+        let bounds = [];
+        let totalDistance = 0;
+        let pickupAddresses = [];
+        let deliveryAddresses = [];
+
+        // Add markers for each order
+        for (const order of assignedOrders) {
+            const pickupLat = order.pickup_latitude;
+            const pickupLng = order.pickup_longitude;
+            const deliveryLat = order.delivery_latitude;
+            const deliveryLng = order.delivery_longitude;
+
+            // Add pickup marker
+            if (pickupLat && pickupLng) {
+                const pickupMarker = L.marker([pickupLat, pickupLng], {
+                    icon: L.divIcon({
+                        className: 'custom-marker pickup-marker-icon',
+                        html: '<div style="background:#007bff;color:white;border-radius:50%;width:25px;height:25px;display:flex;align-items:center;justify-content:center;font-size:12px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)">📦</div>',
+                        iconSize: [25, 25],
+                        iconAnchor: [12, 12]
+                    })
+                }).addTo(deliveryMap);
+                
+                pickupMarker.bindPopup(`
+                    <div style="text-align:center;">
+                        <strong>📦 Pickup</strong><br>
+                        <small>Order #${(order.id || '').slice(0,8)}</small><br>
+                        <small>${order.pickup_address || 'Address not available'}</small>
+                    </div>
+                `);
+                
+                allMarkers.push(pickupMarker);
+                bounds.push([pickupLat, pickupLng]);
+                pickupAddresses.push(order.pickup_address || 'Address not available');
+            }
+
+            // Add delivery marker
+            if (deliveryLat && deliveryLng) {
+                const deliveryMarker = L.marker([deliveryLat, deliveryLng], {
+                    icon: L.divIcon({
+                        className: 'custom-marker delivery-marker-icon',
+                        html: '<div style="background:#dc3545;color:white;border-radius:50%;width:25px;height:25px;display:flex;align-items:center;justify-content:center;font-size:12px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)">🎯</div>',
+                        iconSize: [25, 25],
+                        iconAnchor: [12, 12]
+                    })
+                }).addTo(deliveryMap);
+                
+                deliveryMarker.bindPopup(`
+                    <div style="text-align:center;">
+                        <strong>🎯 Delivery</strong><br>
+                        <small>Order #${(order.id || '').slice(0,8)}</small><br>
+                        <small>${order.address || 'Address not available'}</small>
+                    </div>
+                `);
+                
+                allMarkers.push(deliveryMarker);
+                bounds.push([deliveryLat, deliveryLng]);
+                deliveryAddresses.push(order.address || 'Address not available');
+            }
+
+            // Draw route line if both coordinates exist
+            if (pickupLat && pickupLng && deliveryLat && deliveryLng) {
+                const routeLine = L.polyline([[pickupLat, pickupLng], [deliveryLat, deliveryLng]], {
+                    color: '#28a745',
+                    weight: 3,
+                    opacity: 0.6,
+                    dashArray: '5, 5'
+                }).addTo(deliveryMap);
+                
+                allRoutes.push(routeLine);
+                
+                // Calculate distance
+                const distance = calculateDistance(pickupLat, pickupLng, deliveryLat, deliveryLng);
+                totalDistance += distance;
+            }
+        }
+
+        // Update map display
+        if (bounds.length > 0) {
+            // Fit map to show all markers
+            const group = new L.featureGroup(allMarkers);
+            deliveryMap.fitBounds(group.getBounds().pad(0.15));
+            
+            // Update address displays
+            document.getElementById('pickupAddress').textContent = 
+                `${pickupAddresses.length} pickup locations:\n${pickupAddresses.slice(0, 3).join('\n')}${pickupAddresses.length > 3 ? '\n...' : ''}`;
+            document.getElementById('deliveryAddress').textContent = 
+                `${deliveryAddresses.length} delivery locations:\n${deliveryAddresses.slice(0, 3).join('\n')}${deliveryAddresses.length > 3 ? '\n...' : ''}`;
+            document.getElementById('routeDistance').textContent = 
+                `${assignedOrders.length} active deliveries • Total distance: ${totalDistance.toFixed(2)} km`;
+        } else {
+            document.getElementById('pickupAddress').textContent = 'No coordinates available';
+            document.getElementById('deliveryAddress').textContent = 'No coordinates available';
+            document.getElementById('routeDistance').textContent = 'No coordinates available';
+        }
+
+        // Refresh map size
+        setTimeout(() => {
+            deliveryMap.invalidateSize();
+        }, 100);
+
+    } catch (error) {
+        console.error('Error loading all deliveries:', error);
+        document.getElementById('pickupAddress').textContent = 'Error loading deliveries';
+        document.getElementById('deliveryAddress').textContent = 'Error loading deliveries';
+        document.getElementById('routeDistance').textContent = 'Error loading deliveries';
+    }
 }
 // ── Deliveries ────────────────────────────────────────────────
 async function loadDeliveries(filter = 'all') {

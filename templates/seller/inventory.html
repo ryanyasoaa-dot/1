@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grande — Inventory Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <style>
+        .inventory-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            border: 1px solid #e8e8f0;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a1a3e;
+            margin-bottom: 4px;
+        }
+        .stat-label {
+            font-size: 13px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .stat-change {
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        .stat-change.positive { color: #28a745; }
+        .stat-change.negative { color: #dc3545; }
+        
+        .alert-card {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .alert-icon {
+            font-size: 20px;
+        }
+        .alert-content {
+            flex: 1;
+        }
+        .alert-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+        .alert-description {
+            font-size: 13px;
+            color: #856404;
+        }
+        
+        .inventory-table {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            border: 1px solid #e8e8f0;
+        }
+        .table-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e8e8f0;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+        }
+        .table-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a1a3e;
+        }
+        .table-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+            border: 1px solid #e8e8f0;
+            background: white;
+            color: #1a1a3e;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-sm:hover {
+            background: #f8f9fa;
+            border-color: #dee2e6;
+        }
+        .btn-sm.primary {
+            background: #FF2BAC;
+            color: white;
+            border-color: #FF2BAC;
+        }
+        .btn-sm.primary:hover {
+            background: #e6229a;
+            border-color: #e6229a;
+        }
+        
+        .stock-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .stock-high {
+            background: #d4edda;
+            color: #155724;
+        }
+        .stock-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .stock-low {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .stock-out {
+            background: #e2e3e5;
+            color: #495057;
+        }
+        
+        .variant-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        .color-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid #e8e8f0;
+        }
+        
+        .supplier-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            border: 1px solid #e8e8f0;
+        }
+        .supplier-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .supplier-card {
+            border: 1px solid #e8e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            transition: all 0.2s ease;
+        }
+        .supplier-card:hover {
+            border-color: #FF2BAC;
+            box-shadow: 0 4px 12px rgba(255,43,172,0.1);
+        }
+        .supplier-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .supplier-contact {
+            font-size: 13px;
+            color: #6c757d;
+            margin-bottom: 2px;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            border: 1px solid #e8e8f0;
+        }
+        .chart-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #1a1a3e;
+        }
+        .chart-placeholder {
+            height: 200px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+{% from 'seller/_navbar.html' import seller_navbar %}
+{{ seller_navbar(user=session.get('user'), active='inventory') }}
+
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Inventory Management</h1>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm primary" onclick="exportInventoryReport()">
+                        📊 Export Report
+                    </button>
+                    <button class="btn btn-sm" onclick="checkStockAlerts()">
+                        � Check Alerts
+                    </button>
+                </div>
+            </div>
+
+            <!-- Inventory Stats -->
+            <div class="inventory-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalProducts">0</div>
+                    <div class="stat-label">Total Products</div>
+                    <div class="stat-change positive" id="productsChange">+0 this month</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalStock">0</div>
+                    <div class="stat-label">Total Stock</div>
+                    <div class="stat-change" id="stockChange">+0 this month</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="lowStockCount">0</div>
+                    <div class="stat-label">Low Stock Items</div>
+                    <div class="stat-change negative" id="lowStockChange">+0 this week</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stockValue">₱0</div>
+                    <div class="stat-label">Inventory Value</div>
+                    <div class="stat-change positive" id="valueChange">+0% this month</div>
+                </div>
+            </div>
+
+            <!-- Low Stock Alerts -->
+            <div id="alertsSection"></div>
+
+            <!-- Inventory Chart -->
+            <div class="chart-container">
+                <div class="chart-title">Stock Levels Trend (Last 30 Days)</div>
+                <div class="chart-placeholder">
+                    📈 Stock trend chart will be displayed here
+                </div>
+            </div>
+
+            
+            <!-- Inventory Table -->
+            <div class="inventory-table">
+                <div class="table-header">
+                    <div class="table-title">Inventory Items</div>
+                    <div class="table-actions">
+                        <select class="btn btn-sm" id="filterCategory" onchange="filterInventory()">
+                            <option value="">All Categories</option>
+                        </select>
+                        <select class="btn btn-sm" id="filterStock" onchange="filterInventory()">
+                            <option value="">All Stock Levels</option>
+                            <option value="high">In Stock</option>
+                            <option value="medium">Low Stock</option>
+                            <option value="low">Critical Stock</option>
+                            <option value="out">Out of Stock</option>
+                        </select>
+                        <button class="btn btn-sm" onclick="refreshInventory()">🔄 Refresh</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Variant</th>
+                                <th>Stock</th>
+                                <th>Status</th>
+                                <th>Value</th>
+                                <th>Last Updated</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody">
+                            <!-- Inventory items will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script>
+let inventoryData = [];
+let alertsData = [];
+
+// Load inventory data
+async function loadInventoryData() {
+    try {
+        const [inventory, alerts] = await Promise.all([
+            API.seller.getInventory(),
+            API.seller.getLowStockAlerts()
+        ]);
+        
+        inventoryData = inventory || [];
+        alertsData = alerts || [];
+        
+        updateStats();
+        renderAlerts();
+        renderInventoryTable();
+        populateFilters();
+        
+    } catch (error) {
+        console.error('Failed to load inventory data:', error);
+    }
+}
+
+function updateStats() {
+    const totalProducts = new Set(inventoryData.map(item => item.product_id)).size;
+    const totalStock = inventoryData.reduce((sum, item) => sum + (item.stock || 0), 0);
+    const lowStockCount = inventoryData.filter(item => 
+        item.stock <= (item.low_stock_threshold || 10)
+    ).length;
+    const stockValue = inventoryData.reduce((sum, item) => 
+        sum + ((item.stock || 0) * (item.price || 0)), 0
+    );
+    
+    document.getElementById('totalProducts').textContent = totalProducts;
+    document.getElementById('totalStock').textContent = totalStock.toLocaleString();
+    document.getElementById('lowStockCount').textContent = lowStockCount;
+    document.getElementById('stockValue').textContent = `₱${stockValue.toLocaleString('en-PH', {minimumFractionDigits: 2})}`;
+}
+
+function renderAlerts() {
+    const container = document.getElementById('alertsSection');
+    const activeAlerts = alertsData.filter(alert => !alert.is_resolved);
+    
+    if (activeAlerts.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    container.innerHTML = activeAlerts.map(alert => `
+        <div class="alert-card">
+            <div class="alert-icon">⚠️</div>
+            <div class="alert-content">
+                <div class="alert-title">Low Stock Alert</div>
+                <div class="alert-description">
+                    ${alert.product_name} ${alert.variant_name ? `(${alert.variant_name})` : ''} 
+                    has only ${alert.current_stock} units left (threshold: ${alert.threshold})
+                </div>
+            </div>
+            <button class="btn btn-sm" onclick="resolveAlert('${alert.id}')">
+                Resolve
+            </button>
+        </div>
+    `).join('');
+}
+
+
+function renderInventoryTable() {
+    const tbody = document.getElementById('inventoryTableBody');
+    
+    if (inventoryData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">No inventory items found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = inventoryData.map(item => {
+        const stockLevel = getStockLevel(item.stock, item.low_stock_threshold || 10);
+        const stockClass = getStockClass(stockLevel);
+        
+        return `
+            <tr>
+                <td>
+                    <div style="font-weight: 500;">${item.product_name}</div>
+                    <div style="font-size: 12px; color: #6c757d;">${item.category}</div>
+                </td>
+                <td>
+                    ${item.variant_name ? `
+                        <div class="variant-info">
+                            ${item.color_hex ? `<div class="color-dot" style="background: ${item.color_hex}"></div>` : ''}
+                            <span>${item.size || 'One Size'} - ${item.color || 'Default'}</span>
+                        </div>
+                    ` : '<span style="color: #999;">—</span>'}
+                </td>
+                <td>
+                    <span class="stock-indicator ${stockClass}">
+                        ${getStockIcon(stockLevel)} ${item.stock || 0}
+                    </span>
+                </td>
+                <td>
+                    <span class="stock-indicator ${stockClass}">
+                        ${getStockLabel(stockLevel)}
+                    </span>
+                </td>
+                <td>₱${((item.stock || 0) * (item.price || 0)).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
+                <td>${formatDate(item.updated_at)}</td>
+                <td>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm" onclick="editItem('${item.id}')">Edit</button>
+                        <button class="btn btn-sm" onclick="reorderItem('${item.id}')">Reorder</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function getStockLevel(stock, threshold) {
+    if (stock === 0) return 'out';
+    if (stock <= threshold * 0.5) return 'low';
+    if (stock <= threshold) return 'medium';
+    return 'high';
+}
+
+function getStockClass(level) {
+    const classes = {
+        'high': 'stock-high',
+        'medium': 'stock-medium', 
+        'low': 'stock-low',
+        'out': 'stock-out'
+    };
+    return classes[level] || 'stock-high';
+}
+
+function getStockIcon(level) {
+    const icons = {
+        'high': '✅',
+        'medium': '⚠️',
+        'low': '🔴',
+        'out': '❌'
+    };
+    return icons[level] || '✅';
+}
+
+function getStockLabel(level) {
+    const labels = {
+        'high': 'In Stock',
+        'medium': 'Low Stock',
+        'low': 'Critical',
+        'out': 'Out of Stock'
+    };
+    return labels[level] || 'In Stock';
+}
+
+function formatDate(dateString) {
+    if (!dateString) return '—';
+    return new Date(dateString).toLocaleDateString('en-PH', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
+
+// Modal functions
+function showPurchaseOrderModal() {
+    // TODO: Implement purchase order modal
+    alert('Purchase order feature coming soon!');
+}
+
+function checkStockAlerts() {
+    // Check for new stock alerts
+    loadInventoryData();
+    alert('Stock alerts checked successfully!');
+}
+
+async function resolveAlert(alertId) {
+    try {
+        await API.seller.resolveLowStockAlert(alertId);
+        loadInventoryData(); // Reload data
+    } catch (error) {
+        console.error('Failed to resolve alert:', error);
+        alert('Failed to resolve alert. Please try again.');
+    }
+}
+
+function editItem(itemId) {
+    // TODO: Implement edit item functionality
+    alert('Edit item feature coming soon!');
+}
+
+function reorderItem(itemId) {
+    // TODO: Implement reorder functionality
+    alert('Reorder feature coming soon!');
+}
+
+function filterInventory() {
+    // TODO: Implement filtering logic
+    console.log('Filtering inventory...');
+}
+
+function refreshInventory() {
+    loadInventoryData();
+}
+
+function exportInventoryReport() {
+    // TODO: Implement export functionality
+    alert('Export feature coming soon!');
+}
+
+function populateFilters() {
+    const categories = [...new Set(inventoryData.map(item => item.category).filter(Boolean))];
+    const categorySelect = document.getElementById('filterCategory');
+    
+    categorySelect.innerHTML = '<option value="">All Categories</option>' +
+        categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    loadInventoryData();
+});
+</script>
+</body>
+</html>

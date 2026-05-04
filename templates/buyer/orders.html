@@ -98,7 +98,31 @@ function renderOrders(data) {
         container.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div><h5>No orders found</h5><p>Start shopping to see your orders here.</p><a href="/buyer/market" class="btn-pink px-4 py-2">Shop Now</a></div>`;
         return;
     }
-    container.innerHTML = data.map(o => `
+    container.innerHTML = data.map(o => {
+        // Render order items with variant info
+        const itemsHtml = (o.items || []).slice(0, 3).map(item => {
+            const variant = item.variant || {};
+            const size = variant.size || 'One Size';
+            const color = variant.color || 'Default';
+            const colorHex = variant.color_hex || '#808080';
+            const hasDiscount = variant.discount_type !== 'none' && variant.discount_value > 0;
+            
+            return `
+                <div class="order-item-mini" style="display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px;">
+                    ${colorHex ? `
+                        <div style="width: 12px; height: 12px; background: ${colorHex}; border-radius: 50%; border: 1px solid #e8e8f0;"></div>
+                    ` : ''}
+                    <span style="color: #666;">${size} - ${color}</span>
+                    ${hasDiscount ? `
+                        <span style="color: #28a745; font-size: 11px;">${variant.discount_type === 'percentage' ? variant.discount_value + '%' : '₱' + variant.discount_value} OFF</span>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+        
+        const hasMoreItems = (o.items || []).length > 3;
+        
+        return `
         <div class="card mb-3 border-0 shadow-sm">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
@@ -108,7 +132,18 @@ function renderOrders(data) {
                     </div>
                     <span class="badge text-uppercase" style="background:var(--pink);color:#fff;padding:4px 10px;border-radius:6px">${o.status.replace(/_/g,' ')}</span>
                 </div>
-                <div style="font-size:13px;margin-bottom:12px">${o.items_count || 0} item(s) · <strong style="color:var(--pink)">₱${Number(o.total||0).toLocaleString('en-PH',{minimumFractionDigits:2})}</strong></div>
+                
+                <!-- Order items preview -->
+                <div style="margin-bottom:12px;">
+                    <div style="font-size:13px;font-weight:600;margin-bottom:4px;">${o.items_count || 0} item(s)</div>
+                    <div style="margin-left: 8px;">
+                        ${itemsHtml}
+                        ${hasMoreItems ? `<div style="font-size: 11px; color: #999; margin-top: 4px;">+${(o.items || []).length - 3} more item(s)</div>` : ''}
+                    </div>
+                </div>
+                
+                <div style="font-size:13px;margin-bottom:12px"><strong style="color:var(--pink)">₱${Number(o.total||0).toLocaleString('en-PH',{minimumFractionDigits:2})}</strong></div>
+                
                 <div class="timeline" style="padding-left:20px">
                     ${['pending','processing','ready_for_pickup','in_transit','delivered'].map((s,i,arr) => {
                         const idx = arr.indexOf(o.status);
@@ -120,7 +155,8 @@ function renderOrders(data) {
                 <a href="/buyer/order_summary?id=${o.id}" class="btn-outline-pink px-3 py-1 mt-3 d-inline-block" style="font-size:12px">View Details</a>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 document.addEventListener('DOMContentLoaded', () => { initOrdersPage(); updateCartBadge(); });

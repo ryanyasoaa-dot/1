@@ -88,12 +88,7 @@
                 <div class="pf-hint">Your store category is fixed based on your registration.</div>
             </div>
 
-            <div class="pf-field">
-                <label class="pf-label">Base Price (₱) <span class="pf-req">*</span></label>
-                <input type="number" id="pfBasePrice" class="pf-input" min="0" step="0.01" placeholder="0.00">
-                <div class="pf-hint">You can set individual prices per variant in Step 2.</div>
-            </div>
-
+            
             <div class="pf-actions">
                 <a href="/seller/products" class="pf-btn pf-btn-ghost">Cancel</a>
                 <button type="button" class="pf-btn pf-btn-primary" onclick="pfGoTo(2)">Next → Variants</button>
@@ -103,14 +98,28 @@
         <!-- ══ STEP 2: Variants ══ -->
         <div class="pf-card" id="pfStep2" style="display:none">
             <div class="pf-card-title">🎨 Variants</div>
-            <p class="pf-sub">Add color variants for your product. Each variant has its own price and stock.</p>
+            <p class="pf-sub">Add size and color variants for your product. Each variant has its own price, stock, and optional discount.</p>
+
+            <!-- Product Discount Section -->
+            <div class="pf-field-group" style="margin-bottom: 20px;">
+                <label>Product Discount (Optional)</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <select id="pfProductDiscountType" style="flex: 1;">
+                        <option value="none">No Discount</option>
+                        <option value="percentage">Percentage (%)</option>
+                        <option value="fixed_amount">Fixed Amount (₱)</option>
+                    </select>
+                    <input type="number" id="pfProductDiscountValue" placeholder="0.00" min="0" step="0.01" style="flex: 1; display: none;">
+                </div>
+                <small id="pfProductDiscountPreview" style="color: #28a745; display: block; margin-top: 5px;"></small>
+            </div>
 
             <div id="pfVariantList"></div>
 
             <button type="button" class="pf-add-btn" id="pfAddVariantBtn" onclick="pfAddVariant()">
                 + Add Variant
             </button>
-            <div class="pf-hint" style="margin-top:8px">Maximum 10 variants. No duplicate colors.</div>
+            <div class="pf-hint" style="margin-top:8px">Maximum 10 variants. Each variant must have size and color.</div>
 
             <div class="pf-actions">
                 <button type="button" class="pf-btn pf-btn-ghost" onclick="pfGoTo(1)">← Back</button>

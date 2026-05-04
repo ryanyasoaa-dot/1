@@ -992,8 +992,120 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--dark);
     .filter-card { margin-bottom: 12px; }
 }
 
+/* ── Order Items with Variants ── */
+.order-item {
+    border-bottom: 1px solid var(--border);
+}
+
+.order-item:last-child {
+    border-bottom: none;
+}
+
+.order-item-mini {
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+}
+
+.order-item-mini:hover {
+    opacity: 1;
+}
+
+.variant-color-dot {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    margin-right: 8px;
+    vertical-align: middle;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.variant-color-dot.small {
+    width: 12px;
+    height: 12px;
+    border: 1px solid var(--border);
+    margin-right: 6px;
+}
+
+.variant-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--gray);
+    margin-bottom: 4px;
+}
+
+.variant-discount-badge {
+    display: inline-block;
+    background: #e8f5e8;
+    color: #28a745;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.order-item-price {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+}
+
+.order-item-total {
+    font-weight: 600;
+    color: var(--pink);
+    text-align: right;
+}
+
+.order-items-preview {
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    margin-bottom: 12px;
+}
+
+.order-items-preview .variant-info {
+    margin-bottom: 2px;
+}
+
+.more-items-indicator {
+    font-size: 11px;
+    color: var(--gray);
+    font-style: italic;
+    margin-top: 4px;
+    text-align: center;
+}
+
 @media (max-width: 576px) {
     .search-bar input { font-size: 13px; }
     .product-price { font-size: 14px; }
     .section-title { font-size: 18px; }
+    
+    .order-item {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 8px;
+    }
+    
+    .order-item > div:first-child {
+        width: 100%;
+    }
+    
+    .order-item-total {
+        text-align: left;
+        margin-top: 4px;
+    }
+    
+    .variant-info {
+        font-size: 12px;
+    }
+    
+    .variant-color-dot {
+        width: 14px;
+        height: 14px;
+    }
 }
