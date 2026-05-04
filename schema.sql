@@ -8,10 +8,25 @@ create table users (
     birthdate       date,
     role            text        not null default 'user' check (role in ('user', 'admin', 'buyer', 'seller', 'rider')),
     profile_picture text, 
-    password        text,  -- In production, this should be hashed  <-- LINE 30
+    password        text,  -- In production, this should be hashed
     email           text        not null unique,
+    failed_attempts integer     not null default 0,
+    lock_until      timestamptz,
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now(),
+    primary key (id)
+);
+
+-- ============================================
+-- ACTIVITY LOGS TABLE
+-- ============================================
+create table activity_logs (
+    id          uuid        not null default gen_random_uuid(),
+    user_id     uuid        references users(id) on delete set null,
+    action      text        not null,
+    ip_address  text        not null,
+    user_agent  text,
+    created_at  timestamptz not null default now(),
     primary key (id)
 );
 

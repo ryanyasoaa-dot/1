@@ -28,6 +28,9 @@
                 <a href="/forgot-password" style="font-size:12px;color:#FF2BAC;text-decoration:none;font-weight:500">Forgot password?</a>
             </div>
         </div>
+        <div id="captchaContainer" style="margin-bottom:16px">
+            <div class="g-recaptcha" data-sitekey="{{ config['RECAPTCHA_SITE_KEY'] }}"></div>
+        </div>
         <button type="submit" class="btn-submit" id="submitBtn">Sign In</button>
     </form>
 
@@ -44,6 +47,7 @@
     </div>
 </div>
 
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
 <script src="{{ url_for('static', filename='js/login.js') }}"></script>
 </body>
 </html>

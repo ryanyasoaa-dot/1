@@ -16,6 +16,9 @@ def create_app():
     app.config['SUPABASE_URL'] = os.getenv('SUPABASE_URL')
     app.config['SUPABASE_SERVICE_ROLE_KEY'] = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
     
+    # reCAPTCHA configuration
+    app.config['RECAPTCHA_SITE_KEY'] = os.getenv('RECAPTCHA_SITE_KEY')
+    
     # Register blueprints
     from routes.auth_routes import auth_bp
     from routes.admin_routes import admin_bp

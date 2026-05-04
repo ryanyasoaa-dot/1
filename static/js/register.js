@@ -274,6 +274,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     fd.append('last_name',   g('last_name').value.trim());
     fd.append('email',       g('email').value.trim());
     fd.append('phone',       g('phone').value.trim());
+    fd.append('gender',      document.querySelector('input[name="gender"]:checked').value);
     fd.append('password',    g('password').value);
     fd.append('role',        role);
     fd.append('otp_verified', document.getElementById('otp').dataset.verified ? 'true' : 'false');

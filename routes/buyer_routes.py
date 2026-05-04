@@ -540,15 +540,18 @@ def api_update_profile():
 def api_change_password():
     user_id = session['user']['id']
     data = request.get_json() or {}
-    from security import verify_password, hash_password
+    from security import validate_password, verify_password, hash_password
 
     current_password = data.get('current_password', '')
     new_password     = data.get('new_password', '')
 
     if not current_password or not new_password:
         return jsonify({'error': 'Current password and new password are required'}), 400
-    if len(new_password) < 8:
-        return jsonify({'error': 'New password must be at least 8 characters'}), 400
+
+
+    is_valid, error_msg = validate_password(new_password)
+    if not is_valid:
+        return jsonify({'error': error_msg}), 400
 
     user = user_model.get_by_id(user_id)
     if not user:
@@ -561,6 +564,7 @@ def api_change_password():
     if updated_user:
         return jsonify({'success': True, 'message': 'Password changed successfully'})
     return jsonify({'error': 'Failed to change password'}), 500
+
 
 @buyer_bp.route('/profile')
 @buyer_required
